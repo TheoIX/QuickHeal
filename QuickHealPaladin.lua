@@ -36,10 +36,6 @@ function QuickHeal_Paladin_FindSpellToUse(Target, healType, multiplier, forceMax
     local EstimateUnitHealNeed = QuickHeal_EstimateUnitHealNeed;
     local GetSpellIDs = QuickHeal_GetSpellIDs;
     local debug = QuickHeal_debug;
--- Get total healing modifier (factor) caused by healing target debuffs
-    local HDB = QuickHeal_GetHealModifier(Target);
-    debug("Target debuff healing modifier",HDB);
-    healneed = healneed/HDB;
 
     -- Detect Daybreak on target
     local dbMod = QuickHeal_DetectBuff(Target,"Spell_Holy_AuraMastery");
