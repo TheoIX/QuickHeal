@@ -1,4 +1,4 @@
-Custom Paladin changes for turtle wow for personal use.
+Custom Paladin changes for personal use on Turtle WOW.
 # QuickHeal Turtle WOW
 
 QuickHeal for Turtle WoW (updated for patch 1.17.2)
