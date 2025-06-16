@@ -106,7 +106,6 @@ local function Theo_CastHolyShockIfReady(target)
 end
 
 function QuickTheo_Command()
-    Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
