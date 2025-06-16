@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, using CastSpellByName for reliability)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, using CastSpellByName and no GetSpellCooldown)
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -27,11 +27,12 @@ local function Theo_CastDivineShieldIfLow()
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-        local start, duration = GetSpellCooldown("Divine Shield")
-        if duration == 0 then
-            CastSpellByName("Divine Shield")
-        end
+        CastSpellByName("Divine Shield")
     end
+end
+
+local function Theo_CastPerceptionIfReady()
+    CastSpellByName("Perception")
 end
 
 local function Theo_UseWarmthOfForgiveness()
@@ -41,10 +42,7 @@ local function Theo_UseWarmthOfForgiveness()
     for slot = 13, 14 do
         local item = GetInventoryItemLink("player", slot)
         if item and string.find(item, "Warmth of Forgiveness") then
-            local start, duration, enabled = GetInventoryItemCooldown("player", slot)
-            if duration == 0 and enabled == 1 then
-                UseInventoryItem(slot)
-            end
+            UseInventoryItem(slot)
         end
     end
 end
@@ -58,8 +56,6 @@ local function Theo_CastHolyStrike()
         for i = 1, 40 do if UnitIsUnit(t, "raid" .. i) then return true end end
         return false
     end
-    local start, duration = GetSpellCooldown("Holy Strike")
-    if duration > 0 then return end
     for _, unit in ipairs(slots) do
         if UnitExists(unit) and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit)
             and IsSpellInRange("Holy Strike", unit) == 1 and CheckInteractDistance(unit, 3)
@@ -74,13 +70,11 @@ local function Theo_CastHolyStrike()
 end
 
 local function Theo_CastHolyShockIfReady(target)
-    local start, duration = GetSpellCooldown("Holy Shock")
-    if duration == 0 then
-        CastSpellByName("Holy Shock", target)
-    end
+    CastSpellByName("Holy Shock", target)
 end
 
 function QuickTheo_Command()
+    Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
