@@ -41,20 +41,6 @@ local function Theo_CastDivineShieldIfLow()
     end
 end
 
-local function Theo_CastPerceptionIfReady()
-    local i = 1
-    while true do
-        local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-        if not name then break end
-        if name == "Perception" then
-            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
-            if duration == 0 then CastSpell(i, BOOKTYPE_SPELL) end
-            break
-        end
-        i = i + 1
-    end
-end
-
 local function Theo_UseWarmthOfForgiveness()
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
