@@ -138,42 +138,50 @@ function QuickHeal_Paladin_FindSpellToUse(Target, healType, multiplier, forceMax
     end
 
     -- Detect proc of 'Holy Judgement' (next Holy Light is fast cast)
-if QuickHeal_DetectBuff('player', "ability_paladin_judgementblue") then
-    debug("BUFF: Holy Judgement detected");
+-- At the top of your Lua file (if not already declared elsewhere)
+local currentTime = GetTime()
+if currentTime - (QuickHeal_LastHolyJudgementTime or 0) >= 2 then
+    if QuickHeal_DetectBuff and QuickHeal_DetectBuff('player', "ability_paladin_judgementblue") then
+        if QuickHeal_debug then QuickHeal_debug("BUFF: Holy Judgement detected") end
 
-    local SpellIDsHL = QuickHeal_GetSpellIDs(QUICKHEAL_SPELL_HOLY_LIGHT);
-    local rank9ID = SpellIDsHL and SpellIDsHL[9];
+        local SpellIDsHL = type(QuickHeal_GetSpellIDs) == "function" and QuickHeal_GetSpellIDs(QUICKHEAL_SPELL_HOLY_LIGHT or "Holy Light") or nil
+        local rank9ID = SpellIDsHL and SpellIDsHL[9]
 
-    if rank9ID then
-        local foundTarget = nil;
+        if rank9ID then
+            local foundTarget = nil
+            local unitsToCheck = {
+                "player", "target", "party1", "party2", "party3", "party4",
+                "raid1", "raid2", "raid3", "raid4", "raid5", "raid6", "raid7", "raid8",
+                "raid9", "raid10", "raid11", "raid12", "raid13", "raid14", "raid15", "raid16",
+                "raid17", "raid18", "raid19", "raid20", "raid21", "raid22", "raid23", "raid24",
+                "raid25", "raid26", "raid27", "raid28", "raid29", "raid30", "raid31", "raid32",
+                "raid33", "raid34", "raid35", "raid36", "raid37", "raid38", "raid39", "raid40"
+            }
 
-        -- Check raid or party members (including self)
-        local unitsToCheck = {"player", "target", "party1", "party2", "party3", "party4", "raid1", "raid2", "raid3", "raid4", "raid5",
-                              "raid6", "raid7", "raid8", "raid9", "raid10", "raid11", "raid12", "raid13", "raid14", "raid15", "raid16",
-                              "raid17", "raid18", "raid19", "raid20", "raid21", "raid22", "raid23", "raid24", "raid25", "raid26", "raid27",
-                              "raid28", "raid29", "raid30", "raid31", "raid32", "raid33", "raid34", "raid35", "raid36", "raid37", "raid38", "raid39", "raid40"}
-
-        for _, unit in ipairs(unitsToCheck) do
-            if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-                local health = UnitHealth(unit)
-                local maxHealth = UnitHealthMax(unit)
-                if maxHealth > 0 and (health / maxHealth) < 0.5 then
-                    foundTarget = unit
-                    break
+            for _, unit in ipairs(unitsToCheck) do
+                if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
+                    local health = UnitHealth(unit)
+                    local maxHealth = UnitHealthMax(unit)
+                    if maxHealth > 0 and (health / maxHealth) < 0.5 then
+                        foundTarget = unit
+                        break
+                    end
                 end
+            end
+
+            if foundTarget then
+                if QuickHeal_debug then QuickHeal_debug("Casting Rank 9 Holy Light on: " .. foundTarget) end
+                CastSpell(rank9ID, "spell")
+                SpellTargetUnit(foundTarget)
+                QuickHeal_LastHolyJudgementTime = currentTime
+                return
             end
         end
 
-        if foundTarget then
-            debug("Casting Rank 9 Holy Light on: " .. foundTarget);
-            CastSpell(rank9ID, "spell");
-            SpellTargetUnit(foundTarget);
-            return -- Skip rest of healing logic this tick
-        end
+        if QuickHeal_debug then QuickHeal_debug("No valid low-health target found for Holy Judgement; falling back.") end
     end
-
-    debug("No valid low-health target found for Holy Judgement; falling back to regular healing.");
 end
+
 
 
     -- Get total healing modifier (factor) caused by healing target debuffs
@@ -719,4 +727,3 @@ function QuickHeal_Command_Paladin(msg)
 
     writeLine("/qh reset - Reset configuration to default parameters for all classes.");
 end
-
