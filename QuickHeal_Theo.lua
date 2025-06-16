@@ -42,25 +42,6 @@ local function Theo_CastDivineShieldIfLow()
     end
 end
 
--- Use Perception racial if off cooldown
-local function Theo_CastPerceptionIfReady()
-    local i = 1
-    while true do
-        local spellName = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-        if not spellName then break end
-
-        if spellName == "Perception" then
-            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
-            if duration == 0 then
-                CastSpell(i, BOOKTYPE_SPELL)
-            end
-            break
-        end
-
-        i = i + 1
-    end
-end
-
 -- Use Warmth of Forgiveness trinket if mana < 85%
 local function Theo_UseWarmthOfForgiveness()
     local mana = UnitPower("player")
@@ -120,7 +101,6 @@ end
 -- Main logic triggered by /qhtheo
 function QuickTheo_Command(msg)
     -- Step 0: Use passive tools
-    Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
