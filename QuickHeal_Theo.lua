@@ -44,9 +44,20 @@ end
 
 -- Use Perception racial if off cooldown
 local function Theo_CastPerceptionIfReady()
-    local start, duration = GetSpellCooldown("Perception")
-    if duration == 0 then
-        CastSpellByName("Perception")
+    local i = 1
+    while true do
+        local spellName = GetSpellBookItemName(i, BOOKTYPE_SPELL)
+        if not spellName then break end
+
+        if spellName == "Perception" then
+            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
+            if duration == 0 then
+                CastSpell(i, BOOKTYPE_SPELL)
+            end
+            break
+        end
+
+        i = i + 1
     end
 end
 
