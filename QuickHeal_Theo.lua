@@ -1,5 +1,7 @@
 -- QuickHeal_Theo.lua (Turtle WoW-Compatible Version)
 
+local BOOKTYPE_SPELL = "spell"
+
 -- Utility: Find lowest HP % friendly unit
 local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
