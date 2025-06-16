@@ -12,3 +12,4 @@ libs\ChatThrottleLib\ChatThrottleLib.lua
 
 QuickHeal.xml
 HealingBar.xml
+QuickHeal_Theo.lua
