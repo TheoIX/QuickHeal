@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike prioritized repeatedly, healing between strikes)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike only if in range and off cooldown, healing fallback)
 
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
@@ -53,25 +53,14 @@ local function Theo_CastHolyStrike()
     local now = GetTime()
     if now - lastHolyStrikeTime < HOLY_STRIKE_COOLDOWN then return false end
 
-    local slots = {"target", "targettarget"}
-    local function isThreatToGroup(unit)
-        local t = unit .. "target"
-        if UnitIsUnit(t, "player") then return true end
-        for i = 1, 4 do if UnitIsUnit(t, "party" .. i) then return true end end
-        for i = 1, 40 do if UnitIsUnit(t, "raid" .. i) then return true end end
-        return false
+    if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target")
+        and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
+        CastSpellByName("Holy Strike")
+        AttackTarget()
+        lastHolyStrikeTime = now
+        return true
     end
-    for _, unit in ipairs(slots) do
-        if UnitExists(unit) and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit)
-            and IsSpellInRange("Holy Strike", unit) == 1 and CheckInteractDistance(unit, 3)
-            and isThreatToGroup(unit) then
-            TargetUnit(unit)
-            CastSpellByName("Holy Strike")
-            AttackTarget()  -- start auto-attack
-            lastHolyStrikeTime = now
-            break -- cast once per call, then move on to heal
-        end
-    end
+    return false
 end
 
 local function Theo_CastHolyShockIfReady(target)
@@ -83,9 +72,11 @@ function QuickTheo_Command()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
+    local target, hpPercent = Theo_GetLowestHPTarget()
+
+    -- Only use Holy Strike if we have a valid melee enemy target
     Theo_CastHolyStrike()
 
-    local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then
         DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0TheoHeal:|r No valid heal target found.")
         return
