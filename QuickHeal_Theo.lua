@@ -1,11 +1,16 @@
--- QuickHeal_Theo.lua (Theodan 1 button rotation)
+-- QuickHeal_Theo.lua (Manual Trigger Version with Toggles)
+
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
-local HOLY_STRIKE_COOLDOWN = 6 -- seconds
+local HOLY_STRIKE_COOLDOWN = 6
 local lastDivineShieldTime = 0
-local DIVINE_SHIELD_COOLDOWN = 300 -- seconds (5 minutes)
+local DIVINE_SHIELD_COOLDOWN = 300
 local lastPerceptionTime = 0
-local PERCEPTION_COOLDOWN = 180 -- seconds (3 minutes)
+local PERCEPTION_COOLDOWN = 180
+
+-- Toggles
+local QuickTheo_EnableTrinkets = true
+local QuickTheo_EnableRacial = true
 
 local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
@@ -43,6 +48,7 @@ local function Theo_CastDivineShieldIfLow()
 end
 
 local function Theo_CastPerceptionIfReady()
+    if not QuickTheo_EnableRacial then return end
     local now = GetTime()
     if now - lastPerceptionTime >= PERCEPTION_COOLDOWN then
         local success = CastSpellByName("Perception")
@@ -53,6 +59,7 @@ local function Theo_CastPerceptionIfReady()
 end
 
 local function Theo_UseWarmthOfForgiveness()
+    if not QuickTheo_EnableTrinkets then return end
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
     if maxMana == 0 or (mana / maxMana) >= 0.85 then return end
@@ -101,7 +108,7 @@ local function Theo_CastHolyShockIfReady(target)
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
 end
 
--- Main logic (called manually)
+-- Main logic (manual trigger)
 function QuickTheo_RunLogic()
     Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
@@ -133,15 +140,26 @@ function QuickTheo_RunLogic()
     end
 end
 
--- Slash command runs logic once
+-- Slash command: /qhtheo
 function QuickTheo_Command()
     QuickTheo_RunLogic()
 end
 
--- Register slash command
+-- Slash command: /qhtoggles
+function QuickTheo_ToggleOptions()
+    QuickTheo_EnableRacial = not QuickTheo_EnableRacial
+    QuickTheo_EnableTrinkets = not QuickTheo_EnableTrinkets
+
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Racial: " .. (QuickTheo_EnableRacial and "ON" or "OFF") ..
+        " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF"))
+end
+
+-- Register both slash commands
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
+    SLASH_QUICKTOGGLE1 = "/qhtoggles"
     SlashCmdList["QUICKTHEO"] = QuickTheo_Command
+    SlashCmdList["QUICKTOGGLE"] = QuickTheo_ToggleOptions
 end
 
 local f = CreateFrame("Frame")
