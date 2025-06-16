@@ -1,87 +1,84 @@
-82
-83
-84
-85
-86
-87
-88
-89
-90
-91
-92
-93
-94
-95
-96
-97
-98
-99
-100
-101
-102
-103
-104
-105
-106
-107
-108
-109
-110
-111
-112
-113
-114
-115
-116
-117
-118
-119
-120
-121
-122
-123
-124
-125
-126
-127
-128
-129
-130
-131
-132
-133
-134
-135
-136
-137
-138
-139
-140
-141
-142
-143
-144
-145
-146
-147
-148
-149
-150
-151
-152
-153
-154
-155
-156
-157
-158
-159
-160
-161
-162
-163
 -- QuickHeal_Theo.lua (Turtle WoW-Compatible + Initialization Fix)
+
+local BOOKTYPE_SPELL = "spell"
+
+-- Utility: Find lowest HP % friendly unit
+local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
+    local units = { "player", "party1", "party2", "party3", "party4" }
+    for i = 1, 40 do table.insert(units, "raid" .. i) end
+    for _, unit in ipairs(units) do
+        if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
+            local hp = UnitHealth(unit)
+            local maxhp = UnitHealthMax(unit)
+            if maxhp > 0 then
+                local percent = hp / maxhp
+                if percent < lowestHP then
+                    lowestHP = percent
+                    bestUnit = unit
+                end
+            end
+        end
+    end
+    return bestUnit, lowestHP
+end
+
+local function Theo_CastDivineShieldIfLow()
+    local hp = UnitHealth("player")
+    local maxhp = UnitHealthMax("player")
+    if maxhp > 0 and (hp / maxhp) < 0.25 then
+        local i = 1
+        while true do
+            local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
+            if not name then break end
+            if name == "Divine Shield" then
+                local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
+                if duration == 0 then CastSpell(i, BOOKTYPE_SPELL) end
+                break
+            end
+            i = i + 1
+        end
+    end
+end
+
+local function Theo_CastPerceptionIfReady()
+    local i = 1
+    while true do
+        local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
+        if not name then break end
+        if name == "Perception" then
+            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
+            if duration == 0 then CastSpell(i, BOOKTYPE_SPELL) end
+            break
+        end
+        i = i + 1
+    end
+end
+
+local function Theo_UseWarmthOfForgiveness()
+    local mana = UnitMana("player")
+    local maxMana = UnitManaMax("player")
+    if maxMana == 0 or (mana / maxMana) >= 0.85 then return end
+    for slot = 13, 14 do
+        local item = GetInventoryItemLink("player", slot)
+        if item and string.find(item, "Warmth of Forgiveness") then
+            local start, duration, enabled = GetInventoryItemCooldown("player", slot)
+            if duration == 0 and enabled == 1 then
+                UseInventoryItem(slot)
+            end
+        end
+    end
+end
+
+local function Theo_CastHolyStrike()
+    local slots = {"target", "targettarget", "focus", "nameplate1", "nameplate2", "nameplate3", "nameplate4", "nameplate5"}
+    local function isThreatToGroup(unit)
+        local t = unit .. "target"
+        if UnitIsUnit(t, "player") then return true end
+        for i = 1, 4 do if UnitIsUnit(t, "party" .. i) then return true end end
+        for i = 1, 40 do if UnitIsUnit(t, "raid" .. i) then return true end end
+        return false
+    end
     local i, holyStrikeIndex = 1, nil
     while true do
         local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
