@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, using CastSpellByName and no GetSpellCooldown)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, supports continuous attacking and healing)
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -60,11 +60,9 @@ local function Theo_CastHolyStrike()
         if UnitExists(unit) and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit)
             and IsSpellInRange("Holy Strike", unit) == 1 and CheckInteractDistance(unit, 3)
             and isThreatToGroup(unit) then
-            local originalTarget = UnitExists("target") and UnitName("target")
             TargetUnit(unit)
             CastSpellByName("Holy Strike")
-            AttackTarget()  -- Start auto-attack if not already
-            if originalTarget then TargetByName(originalTarget, true) end
+            AttackTarget()  -- Ensure auto-attack is engaged
             return true
         end
     end
@@ -79,6 +77,11 @@ function QuickTheo_Command()
     Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
+
+    -- Always continue auto-attacking if a valid target exists
+    if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target") then
+        AttackTarget()
+    end
 
     local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then
