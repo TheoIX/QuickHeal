@@ -73,7 +73,7 @@ local function Theo_CastHolyStrike()
         return false
     end
 
-    if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target")
+    if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target") and not UnitIsPlayer("target")
         and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
 
         local success = CastSpellByName("Holy Strike(Rank 8)")
@@ -144,3 +144,4 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", InitQuickTheo)
+
