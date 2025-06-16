@@ -48,7 +48,7 @@ local function Theo_UseWarmthOfForgiveness()
 end
 
 local function Theo_CastHolyStrike()
-    local slots = {"target", "targettarget", "nameplate1", "nameplate2", "nameplate3", "nameplate4", "nameplate5"} -- removed "focus"
+    local slots = {"target", "targettarget"}
     local function isThreatToGroup(unit)
         local t = unit .. "target"
         if UnitIsUnit(t, "player") then return true end
@@ -63,10 +63,12 @@ local function Theo_CastHolyStrike()
             local originalTarget = UnitExists("target") and UnitName("target")
             TargetUnit(unit)
             CastSpellByName("Holy Strike")
+            AttackTarget()  -- Start auto-attack if not already
             if originalTarget then TargetByName(originalTarget, true) end
-            return
+            return true
         end
     end
+    return false
 end
 
 local function Theo_CastHolyShockIfReady(target)
@@ -80,6 +82,7 @@ function QuickTheo_Command()
 
     local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then
+        if Theo_CastHolyStrike() then return end
         DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0TheoHeal:|r No valid heal target found.")
         return
     end
