@@ -55,10 +55,13 @@ local function Theo_CastHolyStrike()
 
     if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target")
         and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
-        CastSpellByName("Holy Strike")
-        AttackTarget()
-        lastHolyStrikeTime = now
-        return true
+
+        local success = CastSpellByName("Holy Strike(Rank 8)") -- replace Rank 1 with your actual rank
+        if success ~= nil then
+            AttackTarget()
+            lastHolyStrikeTime = now
+            return true
+        end
     end
     return false
 end
