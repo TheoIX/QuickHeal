@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible + Initialization Fix)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, using CastSpellByName for reliability)
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -27,17 +27,17 @@ local function Theo_CastDivineShieldIfLow()
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-        local i = 1
-        while true do
-            local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-            if not name then break end
-            if name == "Divine Shield" then
-                local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
-                if duration == 0 then CastSpell(i, BOOKTYPE_SPELL) end
-                break
-            end
-            i = i + 1
+        local start, duration = GetSpellCooldown("Divine Shield")
+        if duration == 0 then
+            CastSpellByName("Divine Shield")
         end
+    end
+end
+
+local function Theo_CastPerceptionIfReady()
+    local start, duration = GetSpellCooldown("Perception")
+    if duration == 0 then
+        CastSpellByName("Perception")
     end
 end
 
@@ -65,15 +65,7 @@ local function Theo_CastHolyStrike()
         for i = 1, 40 do if UnitIsUnit(t, "raid" .. i) then return true end end
         return false
     end
-    local i, holyStrikeIndex = 1, nil
-    while true do
-        local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-        if not name then break end
-        if name == "Holy Strike" then holyStrikeIndex = i break end
-        i = i + 1
-    end
-    if not holyStrikeIndex then return end
-    local start, duration = GetSpellCooldown(holyStrikeIndex, BOOKTYPE_SPELL)
+    local start, duration = GetSpellCooldown("Holy Strike")
     if duration > 0 then return end
     for _, unit in ipairs(slots) do
         if UnitExists(unit) and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit)
@@ -81,7 +73,7 @@ local function Theo_CastHolyStrike()
             and isThreatToGroup(unit) then
             local originalTarget = UnitExists("target") and UnitName("target")
             TargetUnit(unit)
-            CastSpell(holyStrikeIndex, BOOKTYPE_SPELL)
+            CastSpellByName("Holy Strike")
             if originalTarget then TargetByName(originalTarget, true) end
             return
         end
@@ -89,23 +81,14 @@ local function Theo_CastHolyStrike()
 end
 
 local function Theo_CastHolyShockIfReady(target)
-    local i = 1
-    while true do
-        local name = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-        if not name then break end
-        if name == "Holy Shock" then
-            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
-            if duration == 0 then
-                CastSpell(i, BOOKTYPE_SPELL)
-                SpellTargetUnit(target)
-            end
-            break
-        end
-        i = i + 1
+    local start, duration = GetSpellCooldown("Holy Shock")
+    if duration == 0 then
+        CastSpellByName("Holy Shock", target)
     end
 end
 
 function QuickTheo_Command()
+    Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
@@ -119,12 +102,9 @@ function QuickTheo_Command()
 
     local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
     if hasJudgement and hpPercent < 0.5 then
-        local ids = QuickHeal_GetSpellIDs(QUICKHEAL_SPELL_HOLY_LIGHT)
-        if ids and ids[9] then
-            CastSpell(ids[9], BOOKTYPE_SPELL)
-            SpellTargetUnit(target)
-            return
-        end
+        CastSpellByName("Holy Light(Rank 9)")
+        SpellTargetUnit(target)
+        return
     end
 
     local spellID, _ = QuickHeal_Paladin_FindSpellToUse(target)
