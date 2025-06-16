@@ -39,7 +39,6 @@ local function Theo_CastDivineShieldIfLow()
         end
     end
 end
-end
 
 local function Theo_CastPerceptionIfReady()
     local now = GetTime()
@@ -142,4 +141,5 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", InitQuickTheo)
+
 
