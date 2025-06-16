@@ -31,8 +31,14 @@ local function Theo_CastDivineShieldIfLow()
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-        CastSpellByName("Divine Shield")
+        UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
+        local success = CastSpellByName("Divine Shield")
+        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
+        if success ~= nil then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
+        end
     end
+end
 end
 
 local function Theo_CastPerceptionIfReady()
@@ -58,24 +64,39 @@ local function Theo_UseWarmthOfForgiveness()
 end
 
 local function Theo_CastHolyStrike()
+    UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     local now = GetTime()
-    if now - lastHolyStrikeTime < HOLY_STRIKE_COOLDOWN then return false end
+    if now - lastHolyStrikeTime < HOLY_STRIKE_COOLDOWN then
+        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
+        return false
+    end
 
     if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target")
         and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
 
         local success = CastSpellByName("Holy Strike(Rank 8)")
+        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
+
         if success ~= nil then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
             AttackTarget()
             lastHolyStrikeTime = now
             return true
         end
     end
+
+    UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
     return false
 end
 
 local function Theo_CastHolyShockIfReady(target)
-    CastSpellByName("Holy Shock", target)
+    UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
+    local success = CastSpellByName("Holy Shock", target)
+    UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
+
+    if success ~= nil then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
+    end
 end
 
 function QuickTheo_Command()
@@ -121,3 +142,4 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", InitQuickTheo)
+
