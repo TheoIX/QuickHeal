@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike only if in range and off cooldown, healing fallback)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike Rank 8 priority with healing fallback)
 
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
@@ -56,7 +56,7 @@ local function Theo_CastHolyStrike()
     if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target")
         and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
 
-        local success = CastSpellByName("Holy Strike(Rank 8)") -- replace Rank 1 with your actual rank
+        local success = CastSpellByName("Holy Strike(Rank 8)")
         if success ~= nil then
             AttackTarget()
             lastHolyStrikeTime = now
@@ -73,15 +73,19 @@ end
 function QuickTheo_Command()
     Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
-    Theo_CastDivineShieldIfLow()
+
+    local hp = UnitHealth("player")
+    local maxhp = UnitHealthMax("player")
+    if maxhp > 0 and (hp / maxhp) < 0.25 then
+        Theo_CastDivineShieldIfLow()
+        return
+    end
 
     local target, hpPercent = Theo_GetLowestHPTarget()
 
-    -- Only use Holy Strike if we have a valid melee enemy target
     Theo_CastHolyStrike()
 
     if not target then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0TheoHeal:|r No valid heal target found.")
         return
     end
 
