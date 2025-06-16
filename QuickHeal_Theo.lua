@@ -1,4 +1,4 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike cast prioritized if off cooldown)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike prioritized repeatedly, healing between strikes)
 
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
@@ -69,10 +69,9 @@ local function Theo_CastHolyStrike()
             CastSpellByName("Holy Strike")
             AttackTarget()  -- start auto-attack
             lastHolyStrikeTime = now
-            return true
+            break -- cast once per call, then move on to heal
         end
     end
-    return false
 end
 
 local function Theo_CastHolyShockIfReady(target)
@@ -84,9 +83,9 @@ function QuickTheo_Command()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
-    local target, hpPercent = Theo_GetLowestHPTarget()
-    if Theo_CastHolyStrike() then return end
+    Theo_CastHolyStrike()
 
+    local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then
         DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0TheoHeal:|r No valid heal target found.")
         return
