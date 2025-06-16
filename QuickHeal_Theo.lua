@@ -1,6 +1,8 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, restore original Holy Strike logic)
+-- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike cast prioritized if off cooldown)
 
 local BOOKTYPE_SPELL = "spell"
+local lastHolyStrikeTime = 0
+local HOLY_STRIKE_COOLDOWN = 6 -- seconds
 
 -- Utility: Find lowest HP % friendly unit
 local function Theo_GetLowestHPTarget()
@@ -48,6 +50,9 @@ local function Theo_UseWarmthOfForgiveness()
 end
 
 local function Theo_CastHolyStrike()
+    local now = GetTime()
+    if now - lastHolyStrikeTime < HOLY_STRIKE_COOLDOWN then return false end
+
     local slots = {"target", "targettarget"}
     local function isThreatToGroup(unit)
         local t = unit .. "target"
@@ -60,10 +65,10 @@ local function Theo_CastHolyStrike()
         if UnitExists(unit) and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit)
             and IsSpellInRange("Holy Strike", unit) == 1 and CheckInteractDistance(unit, 3)
             and isThreatToGroup(unit) then
-            local originalTarget = UnitExists("target") and UnitName("target")
             TargetUnit(unit)
             CastSpellByName("Holy Strike")
-            if originalTarget then TargetByName(originalTarget, true) end
+            AttackTarget()  -- start auto-attack
+            lastHolyStrikeTime = now
             return true
         end
     end
@@ -80,8 +85,9 @@ function QuickTheo_Command()
     Theo_CastDivineShieldIfLow()
 
     local target, hpPercent = Theo_GetLowestHPTarget()
+    if Theo_CastHolyStrike() then return end
+
     if not target then
-        if Theo_CastHolyStrike() then return end
         DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0TheoHeal:|r No valid heal target found.")
         return
     end
@@ -100,8 +106,6 @@ function QuickTheo_Command()
         CastSpell(spellID, BOOKTYPE_SPELL)
         SpellTargetUnit(target)
     end
-
-    Theo_CastHolyStrike()
 end
 
 -- Ensure safe registration after login
