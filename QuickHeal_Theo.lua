@@ -31,10 +31,8 @@ local function Theo_CastDivineShieldIfLow()
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-        UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
-        local success = CastSpellByName("Divine Shield")
-        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-        if success ~= nil then
+                local success = CastSpellByName("Divine Shield")
+                if success ~= nil then
             DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
         end
     end
@@ -141,5 +139,3 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", InitQuickTheo)
-
-
