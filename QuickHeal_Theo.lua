@@ -17,7 +17,12 @@ local function Theo_GetLowestHPTarget()
             local maxhp = UnitHealthMax(unit)
             if maxhp > 0 then
                 local percent = hp / maxhp
-                if percent < lowestHP then
+
+                -- Only consider targets in range of Holy Shock (20) or Flash/Holy Light (40)
+                local inShockRange = IsSpellInRange("Holy Shock", unit) == 1
+                local inHealRange = IsSpellInRange("Flash of Light", unit) == 1 or IsSpellInRange("Holy Light", unit) == 1
+
+                if (inShockRange or inHealRange) and percent < lowestHP then
                     lowestHP = percent
                     bestUnit = unit
                 end
