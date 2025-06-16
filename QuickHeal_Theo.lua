@@ -3,6 +3,8 @@
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
 local HOLY_STRIKE_COOLDOWN = 6 -- seconds
+local lastPerceptionTime = 0
+local PERCEPTION_COOLDOWN = 180 -- seconds (3 minutes)
 
 -- Utility: Find lowest HP % friendly unit
 local function Theo_GetLowestHPTarget()
@@ -34,7 +36,13 @@ local function Theo_CastDivineShieldIfLow()
 end
 
 local function Theo_CastPerceptionIfReady()
-    CastSpellByName("Perception")
+    local now = GetTime()
+    if now - lastPerceptionTime >= PERCEPTION_COOLDOWN then
+        local success = CastSpellByName("Perception")
+        if success ~= nil then
+            lastPerceptionTime = now
+        end
+    end
 end
 
 local function Theo_UseWarmthOfForgiveness()
@@ -78,7 +86,6 @@ function QuickTheo_Command()
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
         Theo_CastDivineShieldIfLow()
-        return
     end
 
     local target, hpPercent = Theo_GetLowestHPTarget()
