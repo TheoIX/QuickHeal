@@ -1,12 +1,12 @@
--- QuickHeal_Theo.lua (Turtle WoW-Compatible, Holy Strike Rank 8 priority with healing fallback)
-
+-- QuickHeal_Theo.lua (Theodan 1 button rotation)
 local BOOKTYPE_SPELL = "spell"
 local lastHolyStrikeTime = 0
 local HOLY_STRIKE_COOLDOWN = 6 -- seconds
+local lastDivineShieldTime = 0
+local DIVINE_SHIELD_COOLDOWN = 300 -- seconds (5 minutes)
 local lastPerceptionTime = 0
 local PERCEPTION_COOLDOWN = 180 -- seconds (3 minutes)
 
--- Utility: Find lowest HP % friendly unit
 local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
     local units = { "player", "party1", "party2", "party3", "party4" }
@@ -17,11 +17,8 @@ local function Theo_GetLowestHPTarget()
             local maxhp = UnitHealthMax(unit)
             if maxhp > 0 then
                 local percent = hp / maxhp
-
-                -- Only consider targets in range of Holy Shock (20) or Flash/Holy Light (40)
                 local inShockRange = IsSpellInRange("Holy Shock", unit) == 1
                 local inHealRange = IsSpellInRange("Flash of Light", unit) == 1 or IsSpellInRange("Holy Light", unit) == 1
-
                 if (inShockRange or inHealRange) and percent < lowestHP then
                     lowestHP = percent
                     bestUnit = unit
@@ -33,12 +30,14 @@ local function Theo_GetLowestHPTarget()
 end
 
 local function Theo_CastDivineShieldIfLow()
+    local now = GetTime()
+    if now - lastDivineShieldTime < DIVINE_SHIELD_COOLDOWN then return end
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-                local success = CastSpellByName("Divine Shield")
-                if success ~= nil then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
+        local success = CastSpellByName("Divine Shield")
+        if success ~= nil then
+            lastDivineShieldTime = now
         end
     end
 end
@@ -68,19 +67,24 @@ end
 local function Theo_CastHolyStrike()
     UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     local now = GetTime()
-    if now - lastHolyStrikeTime < HOLY_STRIKE_COOLDOWN then
-        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-        return false
+
+    local function isValidTarget()
+        return UnitExists("target")
+            and UnitCanAttack("player", "target")
+            and not UnitIsDeadOrGhost("target")
+            and not UnitIsPlayer("target")
+            and IsSpellInRange("Holy Strike", "target") == 1
+            and CheckInteractDistance("target", 3)
     end
 
-    if UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDeadOrGhost("target") and not UnitIsPlayer("target")
-        and IsSpellInRange("Holy Strike", "target") == 1 and CheckInteractDistance("target", 3) then
+    if not isValidTarget() then
+        RunScript('UnitXP("target", "nearestEnemy")')
+    end
 
+    if now - lastHolyStrikeTime >= HOLY_STRIKE_COOLDOWN and isValidTarget() then
         local success = CastSpellByName("Holy Strike(Rank 8)")
         UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-
         if success ~= nil then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
             AttackTarget()
             lastHolyStrikeTime = now
             return true
@@ -93,15 +97,12 @@ end
 
 local function Theo_CastHolyShockIfReady(target)
     UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
-    local success = CastSpellByName("Holy Shock", target)
+    CastSpellByName("Holy Shock", target)
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-
-    if success ~= nil then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff5555Daddy chill.|r")
-    end
 end
 
-function QuickTheo_Command()
+-- Main logic (called manually)
+function QuickTheo_RunLogic()
     Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
 
@@ -111,13 +112,10 @@ function QuickTheo_Command()
         Theo_CastDivineShieldIfLow()
     end
 
+    if Theo_CastHolyStrike() then return end
+
     local target, hpPercent = Theo_GetLowestHPTarget()
-
-    Theo_CastHolyStrike()
-
-    if not target then
-        return
-    end
+    if not target then return end
 
     Theo_CastHolyShockIfReady(target)
 
@@ -135,7 +133,12 @@ function QuickTheo_Command()
     end
 end
 
--- Ensure safe registration after login
+-- Slash command runs logic once
+function QuickTheo_Command()
+    QuickTheo_RunLogic()
+end
+
+-- Register slash command
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
     SlashCmdList["QUICKTHEO"] = QuickTheo_Command
@@ -144,4 +147,3 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", InitQuickTheo)
-
