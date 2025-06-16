@@ -44,8 +44,8 @@ end
 
 -- Use Warmth of Forgiveness trinket if mana < 85%
 local function Theo_UseWarmthOfForgiveness()
-    local mana = UnitPower("player")
-    local maxMana = UnitPowerMax("player")
+    local mana = UnitMana("player")
+    local maxMana = UnitManaMax("player")
     if maxMana == 0 or (mana / maxMana) >= 0.85 then return end
 
     for slot = 13, 14 do
