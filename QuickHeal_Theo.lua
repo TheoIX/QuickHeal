@@ -48,7 +48,7 @@ local function Theo_UseWarmthOfForgiveness()
 end
 
 local function Theo_CastHolyStrike()
-    local slots = {"target", "targettarget", "focus", "nameplate1", "nameplate2", "nameplate3", "nameplate4", "nameplate5"}
+    local slots = {"target", "targettarget", "nameplate1", "nameplate2", "nameplate3", "nameplate4", "nameplate5"} -- removed "focus"
     local function isThreatToGroup(unit)
         local t = unit .. "target"
         if UnitIsUnit(t, "player") then return true end
