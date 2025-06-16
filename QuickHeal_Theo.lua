@@ -1,16 +1,37 @@
--- QuickHeal_Theo.lua (Manual Trigger Version with Toggles)
-
 local BOOKTYPE_SPELL = "spell"
-local lastHolyStrikeTime = 0
-local HOLY_STRIKE_COOLDOWN = 6
 local lastDivineShieldTime = 0
 local DIVINE_SHIELD_COOLDOWN = 300
 local lastPerceptionTime = 0
 local PERCEPTION_COOLDOWN = 180
 
--- Toggles
+local QuickTheo_WaitingForJudgement = false
+local QuickTheo_LastHolyLightTarget = nil
 local QuickTheo_EnableTrinkets = true
 local QuickTheo_EnableRacial = true
+
+-- ✅ Uses your addon’s shared buff detection system
+local function HasSealOfWisdom()
+    for i = 1, 40 do
+        local name = UnitBuff("player", i)
+        if name and string.find(name, "Seal of Wisdom") then
+            return true
+        end
+    end
+    return false
+end
+
+local function IsSpellOnCooldown(spellName)
+    if not spellName or type(spellName) ~= "string" then return false end
+    for i = 1, 300 do
+        local name, _ = GetSpellName(i, BOOKTYPE_SPELL)
+        if not name then break end
+        if name == spellName then
+            local start, duration = GetSpellCooldown(i, BOOKTYPE_SPELL)
+            return start and duration and duration > 1.0
+        end
+    end
+    return false
+end
 
 local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
@@ -22,9 +43,7 @@ local function Theo_GetLowestHPTarget()
             local maxhp = UnitHealthMax(unit)
             if maxhp > 0 then
                 local percent = hp / maxhp
-                local inShockRange = IsSpellInRange("Holy Shock", unit) == 1
-                local inHealRange = IsSpellInRange("Flash of Light", unit) == 1 or IsSpellInRange("Holy Light", unit) == 1
-                if (inShockRange or inHealRange) and percent < lowestHP then
+                if (IsSpellInRange("Holy Shock", unit) == 1 or IsSpellInRange("Flash of Light", unit) == 1) and percent < lowestHP then
                     lowestHP = percent
                     bestUnit = unit
                 end
@@ -40,10 +59,8 @@ local function Theo_CastDivineShieldIfLow()
     local hp = UnitHealth("player")
     local maxhp = UnitHealthMax("player")
     if maxhp > 0 and (hp / maxhp) < 0.25 then
-        local success = CastSpellByName("Divine Shield")
-        if success ~= nil then
-            lastDivineShieldTime = now
-        end
+        CastSpellByName("Divine Shield")
+        lastDivineShieldTime = now
     end
 end
 
@@ -51,10 +68,8 @@ local function Theo_CastPerceptionIfReady()
     if not QuickTheo_EnableRacial then return end
     local now = GetTime()
     if now - lastPerceptionTime >= PERCEPTION_COOLDOWN then
-        local success = CastSpellByName("Perception")
-        if success ~= nil then
-            lastPerceptionTime = now
-        end
+        CastSpellByName("Perception")
+        lastPerceptionTime = now
     end
 end
 
@@ -73,8 +88,6 @@ end
 
 local function Theo_CastHolyStrike()
     UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
-    local now = GetTime()
-
     local function isValidTarget()
         return UnitExists("target")
             and UnitCanAttack("player", "target")
@@ -88,14 +101,11 @@ local function Theo_CastHolyStrike()
         RunScript('UnitXP("target", "nearestEnemy")')
     end
 
-    if now - lastHolyStrikeTime >= HOLY_STRIKE_COOLDOWN and isValidTarget() then
-        local success = CastSpellByName("Holy Strike(Rank 8)")
-        UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-        if success ~= nil then
-            AttackTarget()
-            lastHolyStrikeTime = now
-            return true
-        end
+    if not IsSpellOnCooldown("Holy Strike") and isValidTarget() then
+        CastSpellByName("Holy Strike")
+        AttackTarget()
+        QuickTheo_WaitingForJudgement = false
+        return true
     end
 
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -108,7 +118,6 @@ local function Theo_CastHolyShockIfReady(target)
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
 end
 
--- Main logic (manual trigger)
 function QuickTheo_RunLogic()
     Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
@@ -121,40 +130,64 @@ function QuickTheo_RunLogic()
 
     if Theo_CastHolyStrike() then return end
 
+    -- ✅ Detect Judgement Blue using your addon’s official method
+    local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
+    if hasJudgement then
+        QuickTheo_WaitingForJudgement = false
+    else
+        local targetValid = UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsPlayer("target")
+        local judgementRange = IsSpellInRange("Judgement", "target") == 1
+
+        if QuickTheo_WaitingForJudgement then
+            CastSpellByName("Judgement")
+            QuickTheo_WaitingForJudgement = false
+            return
+        elseif targetValid
+            and judgementRange
+            and IsSpellOnCooldown("Holy Strike")
+            and not HasSealOfWisdom()
+        then
+            CastSpellByName("Seal of Wisdom")
+            QuickTheo_WaitingForJudgement = true
+            return
+        end
+    end
+
+    -- ✅ Healing logic
     local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then return end
 
     Theo_CastHolyShockIfReady(target)
 
-    local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
     if hasJudgement and hpPercent < 0.5 then
-        CastSpellByName("Holy Light(Rank 9)")
-        SpellTargetUnit(target)
-        return
+        if QuickTheo_LastHolyLightTarget ~= target then
+            CastSpellByName("Holy Light(Rank 9)")
+            SpellTargetUnit(target)
+            QuickTheo_LastHolyLightTarget = target
+            return
+        end
+    else
+        QuickTheo_LastHolyLightTarget = nil
     end
 
-    local spellID, _ = QuickHeal_Paladin_FindSpellToUse(target)
+    local spellID = QuickHeal_Paladin_FindSpellToUse(target)
     if spellID then
         CastSpell(spellID, BOOKTYPE_SPELL)
         SpellTargetUnit(target)
     end
 end
 
--- Slash command: /qhtheo
 function QuickTheo_Command()
     QuickTheo_RunLogic()
 end
 
--- Slash command: /qhtoggles
 function QuickTheo_ToggleOptions()
     QuickTheo_EnableRacial = not QuickTheo_EnableRacial
     QuickTheo_EnableTrinkets = not QuickTheo_EnableTrinkets
-
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Racial: " .. (QuickTheo_EnableRacial and "ON" or "OFF") ..
         " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF"))
 end
 
--- Register both slash commands
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
     SLASH_QUICKTOGGLE1 = "/qhtoggles"
