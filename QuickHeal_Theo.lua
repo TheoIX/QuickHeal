@@ -34,13 +34,6 @@ local function Theo_CastDivineShieldIfLow()
     end
 end
 
-local function Theo_CastPerceptionIfReady()
-    local start, duration = GetSpellCooldown("Perception")
-    if duration == 0 then
-        CastSpellByName("Perception")
-    end
-end
-
 local function Theo_UseWarmthOfForgiveness()
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
@@ -88,7 +81,6 @@ local function Theo_CastHolyShockIfReady(target)
 end
 
 function QuickTheo_Command()
-    Theo_CastPerceptionIfReady()
     Theo_UseWarmthOfForgiveness()
     Theo_CastDivineShieldIfLow()
 
