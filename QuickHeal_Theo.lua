@@ -5,6 +5,7 @@ local BOOKTYPE_SPELL = "spell"
 local QuickTheo_EnableTrinkets = true
 local QuickTheo_EnableRacial = true
 local QuickTheo_EnableMouseover = false
+local QuickTheo_EnableEmergency = true
 local QuickTheo_SealTime = 0
 
 local function IsSpellReady(spellName)
@@ -81,7 +82,7 @@ local function QuickTheo_MouseoverHeal()
         if IsSpellReady("Flash of Light") then
             CastSpellByName("Flash of Light")
             SpellTargetUnit("mouseover")
-         -- DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Flash of Light on mouseover target")
+          --  DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Flash of Light on mouseover target")
             return true
         end
     end
@@ -101,7 +102,7 @@ local function Theo_CastHolyShockIfReady(target)
     -- Always cast if no Daybreak is present, or if target is under 80%
     if not hasDaybreak or percent < 0.8 then
         CastSpellByName("Holy Shock", target)
-     -- DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Holy Shock on " .. target)
+       -- DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Holy Shock on " .. target)
     end
 end
 
@@ -129,7 +130,7 @@ end
         end
     end
 
-    if (UnitHealth("player") / UnitHealthMax("player")) < 0.20 then
+    if QuickTheo_EnableEmergency and (UnitHealth("player") / UnitHealthMax("player")) < 0.20 then
         if IsSpellReady("Divine Shield") then
             CastSpellByName("Divine Shield")
         else
@@ -214,7 +215,7 @@ end
 
     local spellID = QuickHeal_Paladin_FindSpellToUse(target)
     if not spellID then
-     -- DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[QuickTheo] No valid healing spell found for target: " .. (target or "nil"))
+      --  DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[QuickTheo] No valid healing spell found for target: " .. (target or "nil"))
     end
     if spellID then
         CastSpell(spellID, BOOKTYPE_SPELL)
@@ -238,13 +239,20 @@ function QuickTheo_ToggleMouseover()
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Mouseover casting: " .. (QuickTheo_EnableMouseover and "ON" or "OFF"))
 end
 
+function QuickTheo_ToggleEmergency()
+    QuickTheo_EnableEmergency = not QuickTheo_EnableEmergency
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[QuickTheo] Emergency logic (Divine Shield, Healthstone, Potion): " .. (QuickTheo_EnableEmergency and "ON" or "OFF"))
+end
+
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
     SLASH_QUICKTOGGLE1 = "/qhtoggles"
     SLASH_QHMOUSE1 = "/qhmouse"
+    SLASH_QHEMERGENCY1 = "/qhemergency"
     SlashCmdList["QUICKTHEO"] = QuickTheo_Command
     SlashCmdList["QUICKTOGGLE"] = QuickTheo_ToggleOptions
     SlashCmdList["QHMOUSE"] = QuickTheo_ToggleMouseover
+    SlashCmdList["QHEMERGENCY"] = QuickTheo_ToggleEmergency
 end
 
 local f = CreateFrame("Frame")
