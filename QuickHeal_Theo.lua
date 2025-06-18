@@ -2,8 +2,6 @@
 
 local BOOKTYPE_SPELL = "spell"
 
-local QuickTheo_WaitingForJudgement = false
-local QuickTheo_LastHolyLightTarget = nil
 local QuickTheo_EnableTrinkets = true
 local QuickTheo_EnableRacial = true
 local QuickTheo_EnableMouseover = false
@@ -93,6 +91,8 @@ end
 local function Theo_CastHolyShockIfReady(target)
     if not IsSpellReady("Holy Shock") then return end
 
+    if IsSpellInRange("Holy Shock", target) ~= 1 then return end
+
     local hp = UnitHealth(target)
     local maxhp = UnitHealthMax(target)
     local percent = (maxhp > 0) and (hp / maxhp) or 1
@@ -104,14 +104,10 @@ local function Theo_CastHolyShockIfReady(target)
         DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Holy Shock on " .. target)
     end
 end
-    
 
 
-
-function QuickTheo_RunLogic()
-    if QuickTheo_EnableMouseover then
-        if QuickTheo_MouseoverHeal() then return end
-    end
+    function QuickTheo_RunLogic()
+    if QuickTheo_EnableMouseover and QuickTheo_MouseoverHeal() then return end
 
     if QuickTheo_EnableRacial and IsSpellReady("Perception") then
         CastSpellByName("Perception")
@@ -124,55 +120,92 @@ function QuickTheo_RunLogic()
             for slot = 13, 14 do
                 local item = GetInventoryItemLink("player", slot)
                 if item and string.find(item, "Warmth of Forgiveness") then
-                    UseInventoryItem(slot)
+                    local start, duration, enable = GetInventoryItemCooldown("player", slot)
+                    if enable == 1 and (start == 0 or duration == 0) then
+                        UseInventoryItem(slot)
+                    end
                 end
             end
         end
     end
 
-    if (UnitHealth("player") / UnitHealthMax("player")) < 0.25 and IsSpellReady("Divine Shield") then
-        CastSpellByName("Divine Shield")
-    end
-
-    if Theo_CastHolyStrike() then return end
-
-    local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
-    if hasJudgement then
-        QuickTheo_WaitingForJudgement = false
-    else
-        local targetValid = UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsPlayer("target")
-        local judgementRange = IsSpellInRange("Judgement", "target") == 1
-        if QuickTheo_WaitingForJudgement and IsSpellReady("Judgement") then
-            QuickTheo_WaitingForJudgement = false
-            for i = 1, 300 do
-                local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
-                if not name then break end
-                if name == "Judgement" then
-                    CastSpell(i, BOOKTYPE_SPELL)
-                    return
+    if (UnitHealth("player") / UnitHealthMax("player")) < 0.20 then
+        if IsSpellReady("Divine Shield") then
+            CastSpellByName("Divine Shield")
+        else
+            local usedEmergencyItem = false
+            for bag = 0, 4 do
+                for slot = 1, GetContainerNumSlots(bag) do
+                    local itemLink = GetContainerItemLink(bag, slot)
+                    if itemLink and string.find(itemLink, "Healthstone") then
+                        local start, duration, enable = GetContainerItemCooldown(bag, slot)
+                        if enable == 1 and (start == 0 or duration == 0) then
+                            UseContainerItem(bag, slot)
+                            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[QuickTheo] Using emergency Healthstone")
+                            usedEmergencyItem = true
+                            break
+                        end
+                    end
+                end
+                if usedEmergencyItem then break end
+            end
+            if not usedEmergencyItem then
+                for bag = 0, 4 do
+                    for slot = 1, GetContainerNumSlots(bag) do
+                        local itemLink = GetContainerItemLink(bag, slot)
+                        if itemLink and string.find(itemLink, "Healing Potion") then
+                            local start, duration, enable = GetContainerItemCooldown(bag, slot)
+                            if enable == 1 and (start == 0 or duration == 0) then
+                                UseContainerItem(bag, slot)
+                                DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[QuickTheo] Using emergency healing potion")
+                                usedEmergencyItem = true
+                                break
+                            end
+                        end
+                    end
+                    if usedEmergencyItem then break end
                 end
             end
-        elseif targetValid and judgementRange and not HasSealOfWisdom() and not QuickTheo_WaitingForJudgement and IsSpellReady("Seal of Wisdom") and not IsSpellReady("Holy Strike") then
+        end
+    end
+
+    local hasJudgementBuff = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
+    local targetValid = UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsPlayer("target")
+    local judgementRange = IsSpellInRange("Judgement", "target") == 1
+
+    if IsSpellReady("Holy Strike") and Theo_CastHolyStrike() then return end
+
+    -- Seal of Wisdom + Judgement Combo (only if no Holy Judgement and Holy Strike is on cooldown)
+    if targetValid and judgementRange and not HasSealOfWisdom() and not QuickHeal_DetectBuff("player", "ability_paladin_judgementblue") and not IsSpellReady("Holy Strike") and IsSpellReady("Judgement") then
+        if IsSpellReady("Seal of Wisdom") and QuickTheo_LastSealCast ~= "Seal of Wisdom" then
             CastSpellByName("Seal of Wisdom")
-            QuickTheo_WaitingForJudgement = true
-            
-            return
+            QuickTheo_LastSealCast = "Seal of Wisdom"
+            QuickTheo_SealTime = GetTime()
+        end
+
+    for i = 1, 300 do
+        local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
+        if not name then break end
+        if name == "Judgement" then
+            CastSpell(i, BOOKTYPE_SPELL)
+            QuickTheo_LastSealCast = nil
+            break
         end
     end
-
+        return
+    end
     local target, hpPercent = Theo_GetLowestHPTarget()
     if not target then return end
 
+    local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
+
     Theo_CastHolyShockIfReady(target)
 
-    
     if hasJudgement and hpPercent < 0.5 and IsSpellReady("Holy Light(Rank 9)") then
-        if QuickTheo_LastHolyLightTarget ~= target then
-            CastSpellByName("Holy Light(Rank 9)")
-            SpellTargetUnit(target)
-            QuickTheo_LastHolyLightTarget = target
-            return
-        end
+        CastSpellByName("Holy Light(Rank 9)")
+        SpellTargetUnit(target)
+        QuickTheo_LastHolyLightTarget = target
+        return
     else
         QuickTheo_LastHolyLightTarget = nil
     end
@@ -211,11 +244,6 @@ local function InitQuickTheo()
     SlashCmdList["QUICKTOGGLE"] = QuickTheo_ToggleOptions
     SlashCmdList["QHMOUSE"] = QuickTheo_ToggleMouseover
 end
-
-local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN")
-f:SetScript("OnEvent", InitQuickTheo)
-
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
