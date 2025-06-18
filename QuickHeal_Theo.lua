@@ -81,7 +81,7 @@ local function QuickTheo_MouseoverHeal()
         if IsSpellReady("Flash of Light") then
             CastSpellByName("Flash of Light")
             SpellTargetUnit("mouseover")
-            DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Flash of Light on mouseover target")
+         -- DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Flash of Light on mouseover target")
             return true
         end
     end
@@ -101,7 +101,7 @@ local function Theo_CastHolyShockIfReady(target)
     -- Always cast if no Daybreak is present, or if target is under 80%
     if not hasDaybreak or percent < 0.8 then
         CastSpellByName("Holy Shock", target)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Holy Shock on " .. target)
+     -- DEFAULT_CHAT_FRAME:AddMessage("|cff88ccff[QuickTheo] Casting Holy Shock on " .. target)
     end
 end
 
@@ -214,7 +214,7 @@ end
 
     local spellID = QuickHeal_Paladin_FindSpellToUse(target)
     if not spellID then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[QuickTheo] No valid healing spell found for target: " .. (target or "nil"))
+     -- DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[QuickTheo] No valid healing spell found for target: " .. (target or "nil"))
     end
     if spellID then
         CastSpell(spellID, BOOKTYPE_SPELL)
