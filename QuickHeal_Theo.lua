@@ -198,13 +198,15 @@ end
     if not target then return end
 
     local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
+    QuickTheo_LastJudgedLightTime = QuickTheo_LastJudgedLightTime or 0
 
     Theo_CastHolyShockIfReady(target)
 
-    if hasJudgement and hpPercent < 0.5 and IsSpellReady("Holy Light(Rank 9)") then
+    if hasJudgement and hpPercent < 0.5 and IsSpellReady("Holy Light(Rank 9)") and (GetTime() - QuickTheo_LastJudgedLightTime > 1) then
         CastSpellByName("Holy Light(Rank 9)")
         SpellTargetUnit(target)
         QuickTheo_LastHolyLightTarget = target
+        QuickTheo_LastJudgedLightTime = GetTime()
         return
     else
         QuickTheo_LastHolyLightTarget = nil
