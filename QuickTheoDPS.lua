@@ -1,5 +1,19 @@
 -- QuickTheoDPS: Retribution Paladin DPS macro for Turtle WoW (1.12)
 
+local BOOKTYPE_SPELL = "spell"
+
+local function IsSpellReady(spellName)
+    for i = 1, 300 do
+        local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
+        if not name then break end
+        if spellName == name or (rank and spellName == name .. "(" .. rank .. ")") then
+            local start, duration, enabled = GetSpellCooldown(i, BOOKTYPE_SPELL)
+            return enabled == 1 and (start == 0 or duration == 0)
+        end
+    end
+    return false
+end
+
 local function TheoDPS_IsTargetValid()
     return UnitExists("target") and UnitCanAttack("player", "target")
         and not UnitIsDeadOrGhost("target")
@@ -12,10 +26,12 @@ local function TheoDPS_TargetEnemyIfNeeded()
     end
 end
 
-local function TheoDPS_HasBuff(buffName)
+local function TheoDPS_HasPlayerBuff(buffName)
     for i = 1, 40 do
-        local name = UnitBuff("player", i)
-        if name and string.find(name, buffName) then
+        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+        GameTooltip:SetUnitBuff("player", i)
+        local text = GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
+        if text and string.find(text, buffName) then
             return true
         end
     end
@@ -28,12 +44,12 @@ local function TheoDPS_CastAppropriateSeal()
     local manaPercent = (maxMana > 0) and (mana / maxMana) or 1
 
     if manaPercent > 0.20 then
-        if not TheoDPS_HasBuff("Seal of Command") and IsSpellReady("Seal of Command") then
+        if not TheoDPS_HasPlayerBuff("Seal of Command") and IsSpellReady("Seal of Command") then
             CastSpellByName("Seal of Command")
             return true
         end
     else
-        if not TheoDPS_HasBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
+        if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
             CastSpellByName("Seal of Wisdom")
             return true
         end
@@ -43,9 +59,11 @@ end
 
 local function TheoDPS_CastStrike()
     if not TheoDPS_IsTargetValid() then return false end
-    if IsSpellInRange("Holy Strike", "target") ~= 1 then return false end
 
-    local hasHolyMight = TheoDPS_HasBuff("Holy Might")
+    local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
+    if not inRange then return false end
+
+    local hasHolyMight = TheoDPS_HasPlayerBuff("Holy Might")
     local strikeSpell = hasHolyMight and "Crusader Strike" or "Holy Strike"
 
     if IsSpellReady(strikeSpell) then
@@ -136,3 +154,4 @@ end
 local dpsFrame = CreateFrame("Frame")
 dpsFrame:RegisterEvent("PLAYER_LOGIN")
 dpsFrame:SetScript("OnEvent", InitQuickTheoDPS)
+
