@@ -100,6 +100,18 @@ local function Theo_GetLowestHPTarget()
     return bestUnit, lowestHP
 end
 
+local function QuickTheo_MouseoverHeal()
+    if UnitExists("mouseover") and UnitIsFriend("player", "mouseover") and not UnitIsDeadOrGhost("mouseover") then
+        if IsSpellReady("Flash of Light") then
+            CastSpellByName("Flash of Light")
+            SpellTargetUnit("mouseover")
+            QuickTheo_LastHealedTarget = UnitName("mouseover")
+            return true
+        end
+    end
+    return false
+end
+
 function QuickTheo_RunLogic()
     if QuickTheo_EnableMouseover and QuickTheo_MouseoverHeal and QuickTheo_MouseoverHeal() then return end
 
