@@ -21,7 +21,7 @@ local function TheoDPS_IsTargetValid()
 end
 
 local function TheoDPS_TargetEnemyIfNeeded()
-    if not TheoDPS_IsTargetValid() then
+    if not TheoDPS_IsTargetValid() or (IsSpellInRange("Holy Strike", "target") ~= 1 and IsSpellInRange("Judgement", "target") ~= 1) then
         RunScript('UnitXP("target", "nearestEnemy")')
     end
 end
@@ -58,6 +58,7 @@ local function TheoDPS_CastAppropriateSeal()
 end
 
 local function TheoDPS_CastStrike()
+    TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
 
     local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
@@ -75,6 +76,7 @@ local function TheoDPS_CastStrike()
 end
 
 local function TheoDPS_CastJudgement()
+    TheoDPS_TargetEnemyIfNeeded()
     if IsSpellReady("Judgement") and TheoDPS_IsTargetValid() and IsSpellInRange("Judgement", "target") == 1 then
         CastSpellByName("Judgement")
         return true
@@ -83,6 +85,7 @@ local function TheoDPS_CastJudgement()
 end
 
 local function TheoDPS_CastExorcism()
+    TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
     if not UnitCreatureType("target") then return false end
 
@@ -95,6 +98,7 @@ local function TheoDPS_CastExorcism()
 end
 
 local function TheoDPS_CastHammerOfWrath()
+    TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
     if UnitHealth("target") / UnitHealthMax("target") > 0.20 then return false end
 
@@ -106,6 +110,7 @@ local function TheoDPS_CastHammerOfWrath()
 end
 
 local function TheoDPS_CastRepentance()
+    TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
     if UnitLevel("target") ~= -1 then return false end -- Only cast on bosses
 
@@ -129,6 +134,10 @@ local function TheoDPS_CastConsecration()
 end
 
 local function QuickTheoDPS_RunLogic()
+    if IsSpellReady("Perception") then
+        CastSpellByName("Perception")
+        return
+    end
     TheoDPS_TargetEnemyIfNeeded()
 
     if TheoDPS_CastAppropriateSeal() then return end
