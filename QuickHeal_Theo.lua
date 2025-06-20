@@ -12,26 +12,64 @@ local QuickTheo_LastHolyLightCastTime = 0
 local QuickTheo_LastSealCast = nil
 local QuickTheo_LastHealedTarget = nil
 
+local function HasSealOfWisdom()
+    for i = 1, 40 do
+        local buff = UnitBuff("player", i)
+        if not buff then break end
+        if string.find(buff, "Seal of Wisdom") then
+            return true
+        end
+    end
+    return false
+end
+
+local function GetSharedCooldown(spellNames)
+    for i = 1, 300 do
+        local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
+        if not name then break end
+        for _, s in ipairs(spellNames) do
+            if name == s or (rank and name .. "(" .. rank .. ")" == s) then
+                local start, duration, enabled = GetSpellCooldown(i, BOOKTYPE_SPELL)
+                return enabled == 1 and (start == 0 or duration == 0), start, duration
+            end
+        end
+    end
+    return false, 0, 0
+end
+
 local function IsSpellReady(spellName)
     for i = 1, 300 do
         local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
         if not name then break end
         if spellName == name or (rank and spellName == name .. "(" .. rank .. ")") then
             local start, duration, enabled = GetSpellCooldown(i, BOOKTYPE_SPELL)
-            return enabled == 1 and (start == 0 or duration == 0)
+            return enabled == 1 and (start == 0 or duration == 0), start, duration
         end
     end
-    return false
+    return false, 0, 0
 end
 
-local function HasSealOfWisdom()
+local function IsCrusaderStrikeConditionMet()
+    local hasInjuredNearby = false
     for i = 1, 40 do
-        local name = UnitBuff("player", i)
-        if name and string.find(name, "Seal of Wisdom") then
-            return true
+        local unit = "raid" .. i
+        if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
+            local hp = UnitHealth(unit)
+            local maxhp = UnitHealthMax(unit)
+            if maxhp > 0 and (hp / maxhp) < 0.97 and CheckInteractDistance(unit, 3) then
+                hasInjuredNearby = true
+                break
+            end
         end
     end
-    return false
+
+    local ready, start, duration = IsSpellReady("Holy Shock")
+    local cooldownRemaining = 0
+    if not ready then
+        cooldownRemaining = duration - (GetTime() - start)
+    end
+
+    return not hasInjuredNearby and cooldownRemaining > 15
 end
 
 local function Theo_CastHolyStrike()
@@ -50,11 +88,21 @@ local function Theo_CastHolyStrike()
         RunScript('UnitXP("target", "nearestEnemy")')
     end
 
-    if isValidTarget() and IsSpellReady("Holy Strike") then
-        CastSpellByName("Holy Strike")
-        AttackTarget()
-        QuickTheo_WaitingForJudgement = false
-        return true
+    if isValidTarget() then
+        local sharedReady = GetSharedCooldown({"Holy Strike", "Crusader Strike"})
+        if sharedReady then
+            if IsCrusaderStrikeConditionMet() and IsSpellReady("Crusader Strike") then
+                CastSpellByName("Crusader Strike")
+                AttackTarget()
+                QuickTheo_WaitingForJudgement = false
+                return true
+            elseif IsSpellReady("Holy Strike") then
+                CastSpellByName("Holy Strike")
+                AttackTarget()
+                QuickTheo_WaitingForJudgement = false
+                return true
+            end
+        end
     end
 
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
@@ -81,7 +129,6 @@ local function Theo_GetLowestHPTarget()
         end
     end
 
-    -- fallback to last healed if no better option found
     if not bestUnit then
         for _, unit in ipairs(units) do
             if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
@@ -89,7 +136,8 @@ local function Theo_GetLowestHPTarget()
                 local maxhp = UnitHealthMax(unit)
                 if maxhp > 0 then
                     local percent = hp / maxhp
-                    if (IsSpellInRange("Holy Shock", unit) == 1 or IsSpellInRange("Flash of Light", unit) == 1) and percent < lowestHP then
+                    if (IsSpellInRange("Holy Shock", unit) == 1 or IsSpellInRange("Flash of Light", unit) == 1)
+                        and percent < lowestHP then
                         lowestHP = percent
                         bestUnit = unit
                     end
@@ -128,14 +176,12 @@ function Theo_CastHolyShockIfReady(target)
         return
     end
 
-    -- High priority: buff active and HP < 80%
     if hasDaybreak and percent < 0.8 then
         QuickTheo_LastHealedTarget = UnitName(target)
         CastSpellByName("Holy Shock", target)
         return
     end
 
-    -- Default rule: only cast if HP < 80%
     if percent < 0.8 then
         QuickTheo_LastHealedTarget = UnitName(target)
         CastSpellByName("Holy Shock", target)
@@ -238,36 +284,37 @@ function QuickTheo_RunLogic()
     end
 end
 
-function QuickTheo_Command()
-    QuickTheo_RunLogic()
-end
-
-local function QuickTheo_ToggleOptions()
-    QuickTheo_EnableRacial = not QuickTheo_EnableRacial
-    QuickTheo_EnableTrinkets = not QuickTheo_EnableTrinkets
-    QuickTheo_EnableHolyShockSpam = not QuickTheo_EnableHolyShockSpam
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Racial: " .. (QuickTheo_EnableRacial and "ON" or "OFF") ..
-        " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF") ..
-        " | HolyShock Spam: " .. (QuickTheo_EnableHolyShockSpam and "ON" or "OFF"))
-end
-
-local function QuickTheo_ToggleMouseover()
+function QuickTheo_ToggleMouseover()
     QuickTheo_EnableMouseover = not QuickTheo_EnableMouseover
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Mouseover casting: " .. (QuickTheo_EnableMouseover and "ON" or "OFF"))
 end
 
-local function QuickTheo_ToggleEmergency()
+function QuickTheo_ToggleEmergency()
     QuickTheo_EnableEmergency = not QuickTheo_EnableEmergency
     DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[QuickTheo] Emergency logic (Divine Shield, Healthstone, Potion): " .. (QuickTheo_EnableEmergency and "ON" or "OFF"))
 end
 
-local function QuickTheo_ToggleHolyShockSpam()
+function QuickTheo_ToggleHolyShockSpam()
     QuickTheo_EnableHolyShockSpam = not QuickTheo_EnableHolyShockSpam
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] HolyShock Spam Mode: " .. (QuickTheo_EnableHolyShockSpam and "ON" or "OFF"))
 end
 
+function QuickTheo_ToggleOptions()
+    QuickTheo_EnableRacial = not QuickTheo_EnableRacial
+    QuickTheo_EnableTrinkets = not QuickTheo_EnableTrinkets
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Racial: " .. (QuickTheo_EnableRacial and "ON" or "OFF") ..
+        " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF"))
+end
+
+function QuickTheo_Command()
+    QuickTheo_RunLogic()
+end
+
+
+
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
+SLASH_QUICKTHEO2 = "/qt"
     SLASH_QUICKTOGGLE1 = "/qhtoggles"
     SLASH_QHMOUSE1 = "/qhmouse"
     SLASH_QHEMERGENCY1 = "/qhemergency"
