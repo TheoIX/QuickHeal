@@ -112,6 +112,29 @@ local function QuickTheo_MouseoverHeal()
     return false
 end
 
+function Theo_CastHolyShockIfReady(target)
+    if not IsSpellReady("Holy Shock") then return end
+    if IsSpellInRange("Holy Shock", target) ~= 1 then return end
+
+    local hp = UnitHealth(target)
+    local maxhp = UnitHealthMax(target)
+    local percent = (maxhp > 0) and (hp / maxhp) or 1
+    local hasDaybreak = QuickHeal_DetectBuff(target, "spell_holy_surgeoflight")
+
+    -- Priority cast if buff is up and target is below 80%
+    if hasDaybreak and percent < 0.8 then
+        QuickTheo_LastHealedTarget = UnitName(target)
+        CastSpellByName("Holy Shock", target)
+        return
+    end
+
+    -- Fallback cast if not high priority, but still usable
+    if not hasDaybreak or percent < 0.9 then
+        QuickTheo_LastHealedTarget = UnitName(target)
+        CastSpellByName("Holy Shock", target)
+    end
+end
+
 function QuickTheo_RunLogic()
     if QuickTheo_EnableMouseover and QuickTheo_MouseoverHeal and QuickTheo_MouseoverHeal() then return end
 
@@ -120,42 +143,39 @@ function QuickTheo_RunLogic()
     end
 
     if QuickTheo_EnableTrinkets then
-    local mana = UnitMana("player")
-    local maxMana = UnitManaMax("player")
-    for slot = 13, 14 do
-        local item = GetInventoryItemLink("player", slot)
-        if item then
-            -- Warmth of Forgiveness (only if mana < 85%)
-            if string.find(item, "Warmth of Forgiveness") and maxMana > 0 and (mana / maxMana) < 0.85 then
-                local start, duration, enable = GetInventoryItemCooldown("player", slot)
-                if enable == 1 and (start == 0 or duration == 0) then
-                    UseInventoryItem(slot)
-                end
-            end
-
-            -- Eye of the Dead (if multiple injured raid members)
-            if string.find(item, "Eye of the Dead") then
-                local injuredCount = 0
-                for i = 1, 40 do
-                    local unit = "raid" .. i
-                    if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-                        local hp = UnitHealth(unit)
-                        local maxhp = UnitHealthMax(unit)
-                        if maxhp > 0 and (hp / maxhp) < 0.8 then
-                            injuredCount = injuredCount + 1
-                        end
-                    end
-                end
-                if injuredCount >= 5 then -- significant raid damage
+        local mana = UnitMana("player")
+        local maxMana = UnitManaMax("player")
+        for slot = 13, 14 do
+            local item = GetInventoryItemLink("player", slot)
+            if item then
+                if string.find(item, "Warmth of Forgiveness") and maxMana > 0 and (mana / maxMana) < 0.85 then
                     local start, duration, enable = GetInventoryItemCooldown("player", slot)
                     if enable == 1 and (start == 0 or duration == 0) then
                         UseInventoryItem(slot)
                     end
                 end
+                if string.find(item, "Eye of the Dead") then
+                    local injuredCount = 0
+                    for i = 1, 40 do
+                        local unit = "raid" .. i
+                        if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
+                            local hp = UnitHealth(unit)
+                            local maxhp = UnitHealthMax(unit)
+                            if maxhp > 0 and (hp / maxhp) < 0.8 then
+                                injuredCount = injuredCount + 1
+                            end
+                        end
+                    end
+                    if injuredCount >= 5 then
+                        local start, duration, enable = GetInventoryItemCooldown("player", slot)
+                        if enable == 1 and (start == 0 or duration == 0) then
+                            UseInventoryItem(slot)
+                        end
+                    end
+                end
             end
         end
     end
-end
 
     if QuickTheo_EnableEmergency and (UnitHealth("player") / UnitHealthMax("player")) < 0.20 then
         if IsSpellReady("Divine Shield") then
@@ -208,21 +228,6 @@ end
         QuickTheo_LastHealedTarget = UnitName(target)
         CastSpell(spellID, BOOKTYPE_SPELL)
         SpellTargetUnit(target)
-    end
-end
-
-function Theo_CastHolyShockIfReady(target)
-    if not IsSpellReady("Holy Shock") then return end
-    if IsSpellInRange("Holy Shock", target) ~= 1 then return end
-
-    local hp = UnitHealth(target)
-    local maxhp = UnitHealthMax(target)
-    local percent = (maxhp > 0) and (hp / maxhp) or 1
-    local hasDaybreak = QuickHeal_DetectBuff(target, "spell_holy_surgeoflight")
-
-    if not hasDaybreak or percent < 0.8 then
-        QuickTheo_LastHealedTarget = UnitName(target)
-        CastSpellByName("Holy Shock", target)
     end
 end
 
