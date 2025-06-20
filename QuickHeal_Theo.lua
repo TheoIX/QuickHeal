@@ -2,8 +2,8 @@
 
 local BOOKTYPE_SPELL = "spell"
 
-local QuickTheo_EnableTrinkets = true
-local QuickTheo_EnableRacial = true
+local QuickTheo_EnableTrinkets = false
+local QuickTheo_EnableRacial = false
 local QuickTheo_EnableMouseover = false
 local QuickTheo_EnableEmergency = false
 local QuickTheo_SealTime = 0
