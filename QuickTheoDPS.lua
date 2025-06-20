@@ -1,5 +1,10 @@
 -- QuickTheoDPS: Retribution Paladin DPS macro for Turtle WoW (1.12)
 
+QuickTheo_UseSealOfRighteousness = false
+
+QuickTheo_UseWisdomFallback = false
+QuickTheo_UseConsecration = false
+
 local BOOKTYPE_SPELL = "spell"
 
 local function IsSpellReady(spellName)
@@ -43,14 +48,16 @@ local function TheoDPS_CastAppropriateSeal()
     local maxMana = UnitManaMax("player")
     local manaPercent = (maxMana > 0) and (mana / maxMana) or 1
 
-    if manaPercent > 0.20 then
-        if not TheoDPS_HasPlayerBuff("Seal of Command") and IsSpellReady("Seal of Command") then
-            CastSpellByName("Seal of Command")
+    local preferredSeal = QuickTheo_UseSealOfRighteousness and "Seal of Righteousness" or "Seal of Command"
+
+    if QuickTheo_UseWisdomFallback and manaPercent <= 0.20 then
+        if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
+            CastSpellByName("Seal of Wisdom")
             return true
         end
     else
-        if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
-            CastSpellByName("Seal of Wisdom")
+        if not TheoDPS_HasPlayerBuff(preferredSeal) and IsSpellReady(preferredSeal) then
+            CastSpellByName(preferredSeal)
             return true
         end
     end
@@ -122,6 +129,8 @@ local function TheoDPS_CastRepentance()
 end
 
 local function TheoDPS_CastConsecration()
+    if not QuickTheo_UseConsecration then return false end
+
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
     local manaPercent = (maxMana > 0) and (mana / maxMana) or 0
@@ -155,12 +164,32 @@ function QuickTheoDPS_Command()
     QuickTheoDPS_RunLogic()
 end
 
+local function QuickTheo_ToggleWisdomFallback()
+    QuickTheo_UseWisdomFallback = not QuickTheo_UseWisdomFallback
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Wisdom Fallback at 20%: " .. (QuickTheo_UseWisdomFallback and "ON" or "OFF"))
+end
+
+local function QuickTheo_ToggleConsecration()
+    QuickTheo_UseConsecration = not QuickTheo_UseConsecration
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Consecration: " .. (QuickTheo_UseConsecration and "ON" or "OFF"))
+end
+
+local function QuickTheo_ToggleSealOfRighteousness()
+    QuickTheo_UseSealOfRighteousness = not QuickTheo_UseSealOfRighteousness
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Seal Preference: " .. (QuickTheo_UseSealOfRighteousness and "Righteousness" or "Command"))
+end
+
 local function InitQuickTheoDPS()
     SLASH_QUICKTHEODPS1 = "/qhtheodps"
     SlashCmdList["QUICKTHEODPS"] = QuickTheoDPS_Command
+    SLASH_QHWISDOM1 = "/qhwisdom"
+    SlashCmdList["QHWISDOM"] = QuickTheo_ToggleWisdomFallback
+    SLASH_QHCONSECRATION1 = "/qhconsecration"
+    SlashCmdList["QHCONSECRATION"] = QuickTheo_ToggleConsecration
+    SLASH_QHSPELLRET1 = "/qhspellret"
+    SlashCmdList["QHSPELLRET"] = QuickTheo_ToggleSealOfRighteousness
 end
 
 local dpsFrame = CreateFrame("Frame")
 dpsFrame:RegisterEvent("PLAYER_LOGIN")
 dpsFrame:SetScript("OnEvent", InitQuickTheoDPS)
-
