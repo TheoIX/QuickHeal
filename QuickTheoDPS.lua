@@ -140,9 +140,8 @@ local function TheoDPS_CastHammerOfWrath()
 end
 
 local function TheoDPS_CastRepentance()
-    TheoDPS_TargetEnemyIfNeeded()
-    if not TheoDPS_IsTargetValid() then return false end
-    if UnitLevel("target") ~= -1 then return false end -- Only cast on bosses
+    if UnitLevel("target") ~= -1 then return false end
+    if UnitHealth("target") <= 10000 then return false end -- Only cast on bosses
 
     if IsSpellReady("Repentance") and IsSpellInRange("Repentance", "target") == 1 then
         CastSpellByName("Repentance")
