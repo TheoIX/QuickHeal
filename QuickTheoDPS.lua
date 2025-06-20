@@ -1,9 +1,9 @@
 -- QuickTheoDPS: Retribution Paladin DPS macro for Turtle WoW (1.12)
 
 QuickTheo_UseSealOfRighteousness = false
-
 QuickTheo_UseWisdomFallback = false
 QuickTheo_UseConsecration = false
+QuickTheo_HolyMightExpireTime = 0
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -13,11 +13,12 @@ local function IsSpellReady(spellName)
         if not name then break end
         if spellName == name or (rank and spellName == name .. "(" .. rank .. ")") then
             local start, duration, enabled = GetSpellCooldown(i, BOOKTYPE_SPELL)
-            return enabled == 1 and (start == 0 or duration == 0)
+            return enabled == 1 and (start == 0 or duration == 0), start, duration
         end
     end
     return false
 end
+
 
 local function TheoDPS_IsTargetValid()
     return UnitExists("target") and UnitCanAttack("player", "target")
@@ -65,26 +66,47 @@ local function TheoDPS_CastAppropriateSeal()
 end
 
 local function TheoDPS_CastStrike()
-    TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
 
     local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
     if not inRange then return false end
 
     local hasHolyMight = TheoDPS_HasPlayerBuff("Holy Might")
-    local strikeSpell = hasHolyMight and "Crusader Strike" or "Holy Strike"
+    local holyReady, holyStart, holyDur = IsSpellReady("Holy Strike")
+    local crusaderReady, crusaderStart, crusaderDur = IsSpellReady("Crusader Strike")
+    local holyCooldownLeft = holyReady and 0 or (holyStart + holyDur - GetTime())
+    local holyMightLeft = math.max(0, QuickTheo_HolyMightExpireTime - GetTime())
 
-    if IsSpellReady(strikeSpell) then
-        CastSpellByName(strikeSpell)
+    -- Prioritize Holy Strike if buff is down
+    if not hasHolyMight and holyReady then
+        CastSpellByName("Holy Strike")
+        QuickTheo_HolyMightExpireTime = GetTime() + 20
         AttackTarget()
         return true
     end
+
+    -- If buff is expiring within 2 seconds of strike cooldown ending, prioritize Holy Strike
+    if holyMightLeft > 0 and math.abs(holyMightLeft - holyCooldownLeft) <= 2 and holyReady then
+        CastSpellByName("Holy Strike")
+        AttackTarget()
+        return true
+    end
+
+    -- Otherwise use Crusader Strike if available and buff is active
+    if hasHolyMight and crusaderReady then
+        CastSpellByName("Crusader Strike")
+        AttackTarget()
+        return true
+    end
+
     return false
 end
 
 local function TheoDPS_CastJudgement()
-    TheoDPS_TargetEnemyIfNeeded()
-    if IsSpellReady("Judgement") and TheoDPS_IsTargetValid() and IsSpellInRange("Judgement", "target") == 1 then
+    if not TheoDPS_IsTargetValid() then return false end
+    if IsSpellInRange("Judgement", "target") ~= 1 then return false end
+
+    if IsSpellReady("Judgement") then
         CastSpellByName("Judgement")
         return true
     end
@@ -108,6 +130,7 @@ local function TheoDPS_CastHammerOfWrath()
     TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
     if UnitHealth("target") / UnitHealthMax("target") > 0.20 then return false end
+    if UnitHealth("target") < 5000 then return false end
 
     if IsSpellReady("Hammer of Wrath") and IsSpellInRange("Hammer of Wrath", "target") == 1 then
         CastSpellByName("Hammer of Wrath")
@@ -149,8 +172,8 @@ local function QuickTheoDPS_RunLogic()
     end
     TheoDPS_TargetEnemyIfNeeded()
 
-    if TheoDPS_CastAppropriateSeal() then return end
     if TheoDPS_CastStrike() then return end
+    if TheoDPS_CastAppropriateSeal() then return end
     if TheoDPS_CastJudgement() then return end
     if TheoDPS_CastExorcism() then return end
     if TheoDPS_CastHammerOfWrath() then return end
