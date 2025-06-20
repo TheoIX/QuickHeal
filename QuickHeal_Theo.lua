@@ -6,6 +6,7 @@ local QuickTheo_EnableTrinkets = false
 local QuickTheo_EnableRacial = false
 local QuickTheo_EnableMouseover = false
 local QuickTheo_EnableEmergency = false
+local QuickTheo_EnableHolyShockSpam = false
 local QuickTheo_SealTime = 0
 local QuickTheo_LastHolyLightCastTime = 0
 local QuickTheo_LastSealCast = nil
@@ -121,15 +122,21 @@ function Theo_CastHolyShockIfReady(target)
     local percent = (maxhp > 0) and (hp / maxhp) or 1
     local hasDaybreak = QuickHeal_DetectBuff(target, "spell_holy_surgeoflight")
 
-    -- Priority cast if buff is up and target is below 80%
+    if QuickTheo_EnableHolyShockSpam then
+        QuickTheo_LastHealedTarget = UnitName(target)
+        CastSpellByName("Holy Shock", target)
+        return
+    end
+
+    -- High priority: buff active and HP < 80%
     if hasDaybreak and percent < 0.8 then
         QuickTheo_LastHealedTarget = UnitName(target)
         CastSpellByName("Holy Shock", target)
         return
     end
 
-    -- Fallback cast if not high priority, but still usable
-    if not hasDaybreak or percent < 0.9 then
+    -- Default rule: only cast if HP < 80%
+    if percent < 0.8 then
         QuickTheo_LastHealedTarget = UnitName(target)
         CastSpellByName("Holy Shock", target)
     end
@@ -238,8 +245,10 @@ end
 local function QuickTheo_ToggleOptions()
     QuickTheo_EnableRacial = not QuickTheo_EnableRacial
     QuickTheo_EnableTrinkets = not QuickTheo_EnableTrinkets
+    QuickTheo_EnableHolyShockSpam = not QuickTheo_EnableHolyShockSpam
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Racial: " .. (QuickTheo_EnableRacial and "ON" or "OFF") ..
-        " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF"))
+        " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF") ..
+        " | HolyShock Spam: " .. (QuickTheo_EnableHolyShockSpam and "ON" or "OFF"))
 end
 
 local function QuickTheo_ToggleMouseover()
@@ -252,15 +261,22 @@ local function QuickTheo_ToggleEmergency()
     DEFAULT_CHAT_FRAME:AddMessage("|cffff5555[QuickTheo] Emergency logic (Divine Shield, Healthstone, Potion): " .. (QuickTheo_EnableEmergency and "ON" or "OFF"))
 end
 
+local function QuickTheo_ToggleHolyShockSpam()
+    QuickTheo_EnableHolyShockSpam = not QuickTheo_EnableHolyShockSpam
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] HolyShock Spam Mode: " .. (QuickTheo_EnableHolyShockSpam and "ON" or "OFF"))
+end
+
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
     SLASH_QUICKTOGGLE1 = "/qhtoggles"
     SLASH_QHMOUSE1 = "/qhmouse"
     SLASH_QHEMERGENCY1 = "/qhemergency"
+    SLASH_QHHOLYSHOCKSPAM1 = "/qhshockspam"
     SlashCmdList["QUICKTHEO"] = QuickTheo_Command
     SlashCmdList["QUICKTOGGLE"] = QuickTheo_ToggleOptions
     SlashCmdList["QHMOUSE"] = QuickTheo_ToggleMouseover
     SlashCmdList["QHEMERGENCY"] = QuickTheo_ToggleEmergency
+    SlashCmdList["QHHOLYSHOCKSPAM"] = QuickTheo_ToggleHolyShockSpam
 end
 
 local frame = CreateFrame("Frame")
