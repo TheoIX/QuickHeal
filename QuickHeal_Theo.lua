@@ -7,6 +7,7 @@ local QuickTheo_EnableRacial = false
 local QuickTheo_EnableMouseover = false
 local QuickTheo_EnableEmergency = false
 local QuickTheo_EnableHolyShockSpam = false
+local QuickTheo_EnableTea = true
 local QuickTheo_SealTime = 0
 local QuickTheo_LastHolyLightCastTime = 0
 local QuickTheo_LastSealCast = nil
@@ -195,6 +196,26 @@ function QuickTheo_RunLogic()
         CastSpellByName("Perception")
     end
 
+    -- Use Nordannar Herbal Tea if mana is low and in combat
+    if QuickTheo_EnableTea and UnitAffectingCombat("player") then
+        local mana = UnitMana("player")
+        local maxMana = UnitManaMax("player")
+        if maxMana > 0 and (mana / maxMana) < 0.65 then
+            for bag = 0, 4 do
+                for slot = 1, GetContainerNumSlots(bag) do
+                    local itemLink = GetContainerItemLink(bag, slot)
+                    if itemLink and string.find(itemLink, "Nordannar Herbal Tea") then
+                        local start, duration, enable = GetContainerItemCooldown(bag, slot)
+                        if enable == 1 and (start == 0 or duration == 0) then
+                            UseContainerItem(bag, slot)
+                            return
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     if QuickTheo_EnableTrinkets then
         local mana = UnitMana("player")
         local maxMana = UnitManaMax("player")
@@ -306,24 +327,29 @@ function QuickTheo_ToggleOptions()
         " | Trinkets: " .. (QuickTheo_EnableTrinkets and "ON" or "OFF"))
 end
 
+function QuickTheo_ToggleTea()
+    QuickTheo_EnableTea = not QuickTheo_EnableTea
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Nordannar Herbal Tea: " .. (QuickTheo_EnableTea and "ON" or "OFF"))
+end
+
 function QuickTheo_Command()
     QuickTheo_RunLogic()
 end
 
-
-
 local function InitQuickTheo()
     SLASH_QUICKTHEO1 = "/qhtheo"
-SLASH_QUICKTHEO2 = "/qt"
+    SLASH_QUICKTHEO2 = "/qt"
     SLASH_QUICKTOGGLE1 = "/qhtoggles"
     SLASH_QHMOUSE1 = "/qhmouse"
     SLASH_QHEMERGENCY1 = "/qhemergency"
     SLASH_QHHOLYSHOCKSPAM1 = "/qhshockspam"
+    SLASH_QHTEA1 = "/qhtea"
     SlashCmdList["QUICKTHEO"] = QuickTheo_Command
     SlashCmdList["QUICKTOGGLE"] = QuickTheo_ToggleOptions
     SlashCmdList["QHMOUSE"] = QuickTheo_ToggleMouseover
     SlashCmdList["QHEMERGENCY"] = QuickTheo_ToggleEmergency
     SlashCmdList["QHHOLYSHOCKSPAM"] = QuickTheo_ToggleHolyShockSpam
+    SlashCmdList["QHTEA"] = QuickTheo_ToggleTea
 end
 
 local frame = CreateFrame("Frame")
