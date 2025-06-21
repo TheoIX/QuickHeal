@@ -19,7 +19,6 @@ local function IsSpellReady(spellName)
     return false
 end
 
-
 local function TheoDPS_IsTargetValid()
     return UnitExists("target") and UnitCanAttack("player", "target")
         and not UnitIsDeadOrGhost("target")
@@ -77,7 +76,6 @@ local function TheoDPS_CastStrike()
     local holyCooldownLeft = holyReady and 0 or (holyStart + holyDur - GetTime())
     local holyMightLeft = math.max(0, QuickTheo_HolyMightExpireTime - GetTime())
 
-    -- Prioritize Holy Strike if buff is down
     if not hasHolyMight and holyReady then
         CastSpellByName("Holy Strike")
         QuickTheo_HolyMightExpireTime = GetTime() + 20
@@ -85,14 +83,12 @@ local function TheoDPS_CastStrike()
         return true
     end
 
-    -- If buff is expiring within 2 seconds of strike cooldown ending, prioritize Holy Strike
     if holyMightLeft > 0 and math.abs(holyMightLeft - holyCooldownLeft) <= 2 and holyReady then
         CastSpellByName("Holy Strike")
         AttackTarget()
         return true
     end
 
-    -- Otherwise use Crusader Strike if available and buff is active
     if hasHolyMight and crusaderReady then
         CastSpellByName("Crusader Strike")
         AttackTarget()
@@ -108,6 +104,7 @@ local function TheoDPS_CastJudgement()
 
     if IsSpellReady("Judgement") then
         CastSpellByName("Judgement")
+        AttackTarget()
         return true
     end
     return false
@@ -121,6 +118,7 @@ local function TheoDPS_CastExorcism()
     local creatureType = UnitCreatureType("target")
     if creatureType == "Undead" and IsSpellReady("Exorcism") and IsSpellInRange("Exorcism", "target") == 1 then
         CastSpellByName("Exorcism")
+        AttackTarget()
         return true
     end
     return false
@@ -134,6 +132,7 @@ local function TheoDPS_CastHammerOfWrath()
 
     if IsSpellReady("Hammer of Wrath") and IsSpellInRange("Hammer of Wrath", "target") == 1 then
         CastSpellByName("Hammer of Wrath")
+        AttackTarget()
         return true
     end
     return false
@@ -141,7 +140,7 @@ end
 
 local function TheoDPS_CastRepentance()
     if UnitLevel("target") ~= -1 then return false end
-    if UnitHealth("target") <= 10000 then return false end -- Only cast on bosses
+    if UnitHealth("target") <= 10000 then return false end
 
     if IsSpellReady("Repentance") and IsSpellInRange("Repentance", "target") == 1 then
         CastSpellByName("Repentance")
