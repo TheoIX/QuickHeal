@@ -53,11 +53,13 @@ local function TheoDPS_CastAppropriateSeal()
     if QuickTheo_UseWisdomFallback and manaPercent <= 0.20 then
         if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
             CastSpellByName("Seal of Wisdom")
+            AttackTarget()
             return true
         end
     else
         if not TheoDPS_HasPlayerBuff(preferredSeal) and IsSpellReady(preferredSeal) then
             CastSpellByName(preferredSeal)
+            AttackTarget()
             return true
         end
     end
@@ -144,6 +146,7 @@ local function TheoDPS_CastRepentance()
 
     if IsSpellReady("Repentance") and IsSpellInRange("Repentance", "target") == 1 then
         CastSpellByName("Repentance")
+        AttackTarget()
         return true
     end
     return false
@@ -158,6 +161,7 @@ local function TheoDPS_CastConsecration()
 
     if manaPercent > 0.75 and IsSpellReady("Consecration") then
         CastSpellByName("Consecration")
+        AttackTarget()
         return true
     end
     return false
@@ -166,6 +170,7 @@ end
 local function QuickTheoDPS_RunLogic()
     if IsSpellReady("Perception") then
         CastSpellByName("Perception")
+        AttackTarget()
         return
     end
     TheoDPS_TargetEnemyIfNeeded()
