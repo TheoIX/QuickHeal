@@ -14,3 +14,4 @@ QuickHeal.xml
 HealingBar.xml
 QuickHeal_Theo.lua
 QuickTheoDPS.lua
+theomode.lua
