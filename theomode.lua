@@ -193,9 +193,8 @@ local function IsCrusaderStrikeConditionMet()
 end
 
 function Theo_CastHolyShock()
-    local holyStrikeReady = IsSpellReady("Holy Strike")
     local holyShockReady = IsSpellReady("Holy Shock")
-    if not holyShockReady or holyStrikeReady then return false end
+    if not holyShockReady then return false end
 
     local bestTarget = nil
     local hasDaybreak = false
@@ -247,7 +246,7 @@ function Theo_CastHolyShock()
 
     return false
 end
-
+         
 local function Theo_UseUtilities()
     if not Theo_EnableUtilities then return end
     local now = GetTime()
