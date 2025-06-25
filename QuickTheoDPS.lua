@@ -121,7 +121,7 @@ local function TheoDPS_CastExorcism()
     end
 
     local creatureType = UnitCreatureType("target")
-    if creatureType == "Undead" and IsSpellReady("Exorcism") and IsSpellInRange("Exorcism", "target") == 1 then
+    if (creatureType == "Undead" or creatureType == "Demon") and IsSpellReady("Exorcism") and IsSpellInRange("Exorcism", "target") == 1 then
         CastSpellByName("Exorcism")
         RunMacroText("/startattack")
         return true
