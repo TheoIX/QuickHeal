@@ -53,15 +53,13 @@ local function TheoDPS_CastAppropriateSeal()
     if QuickTheo_UseWisdomFallback and manaPercent <= 0.20 then
         if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
             CastSpellByName("Seal of Wisdom")
-            AttackTarget()
-        RunMacroText("/startattack")
+            RunMacroText("/startattack")
             return true
         end
     else
         if not TheoDPS_HasPlayerBuff(preferredSeal) and IsSpellReady(preferredSeal) then
             CastSpellByName(preferredSeal)
-            AttackTarget()
-        RunMacroText("/startattack")
+            RunMacroText("/startattack")
             return true
         end
     end
@@ -83,21 +81,18 @@ local function TheoDPS_CastStrike()
     if not hasHolyMight and holyReady then
         CastSpellByName("Holy Strike")
         QuickTheo_HolyMightExpireTime = GetTime() + 20
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
 
     if holyMightLeft > 0 and math.abs(holyMightLeft - holyCooldownLeft) <= 2 and holyReady then
         CastSpellByName("Holy Strike")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
 
     if hasHolyMight and crusaderReady then
         CastSpellByName("Crusader Strike")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -111,7 +106,6 @@ local function TheoDPS_CastJudgement()
 
     if IsSpellReady("Judgement") then
         CastSpellByName("Judgement")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -122,7 +116,6 @@ local function TheoDPS_CastExorcism()
     TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
     if not UnitCreatureType("target") then
-        AttackTarget()
         RunMacroText("/startattack")
         return false
     end
@@ -130,7 +123,6 @@ local function TheoDPS_CastExorcism()
     local creatureType = UnitCreatureType("target")
     if creatureType == "Undead" and IsSpellReady("Exorcism") and IsSpellInRange("Exorcism", "target") == 1 then
         CastSpellByName("Exorcism")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -145,7 +137,6 @@ local function TheoDPS_CastHammerOfWrath()
 
     if IsSpellReady("Hammer of Wrath") and IsSpellInRange("Hammer of Wrath", "target") == 1 then
         CastSpellByName("Hammer of Wrath")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -158,7 +149,6 @@ local function TheoDPS_CastRepentance()
 
     if IsSpellReady("Repentance") and IsSpellInRange("Repentance", "target") == 1 then
         CastSpellByName("Repentance")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -174,7 +164,6 @@ local function TheoDPS_CastConsecration()
 
     if manaPercent > 0.75 and IsSpellReady("Consecration") then
         CastSpellByName("Consecration")
-        AttackTarget()
         RunMacroText("/startattack")
         return true
     end
@@ -184,7 +173,6 @@ end
 local function QuickTheoDPS_RunLogic()
     if IsSpellReady("Perception") then
         CastSpellByName("Perception")
-        AttackTarget()
         RunMacroText("/startattack")
         return
     end
@@ -198,8 +186,7 @@ local function QuickTheoDPS_RunLogic()
     if TheoDPS_CastRepentance() then return end
     if TheoDPS_CastConsecration() then return end
 
-    if IsSpellReady("Attack") then AttackTarget()
-        RunMacroText("/startattack") end
+    RunMacroText("/startattack")
 end
 
 function QuickTheoDPS_Command()
