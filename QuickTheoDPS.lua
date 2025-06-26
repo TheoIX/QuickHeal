@@ -4,6 +4,8 @@ QuickTheo_UseSealOfRighteousness = false
 QuickTheo_UseWisdomFallback = false
 QuickTheo_UseConsecration = false
 QuickTheo_HolyMightExpireTime = 0
+QuickTheo_ZealMode = false
+QuickTheo_ZealStacks = 0
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -31,7 +33,7 @@ local function TheoDPS_TargetEnemyIfNeeded()
     end
 end
 
-local function TheoDPS_HasPlayerBuff(buffName)
+local function TheoDPS_HasBuff(buffName)
     for i = 1, 40 do
         GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
         GameTooltip:SetUnitBuff("player", i)
@@ -43,6 +45,64 @@ local function TheoDPS_HasPlayerBuff(buffName)
     return false
 end
 
+local function TheoDPS_CastStrike()
+    if not TheoDPS_IsTargetValid() then
+        return false
+    end
+
+    local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
+    if not inRange then return false end
+
+    local hasZeal = TheoDPS_HasBuff("Zeal")
+
+    -- Zeal Mode logic: always cast 3 Crusader Strikes when Zeal is missing
+    if QuickTheo_ZealMode and QuickTheo_ZealStacks < 3 then
+        local crusaderReady = IsSpellReady("Crusader Strike")
+        if crusaderReady then
+            CastSpellByName("Crusader Strike")
+            QuickTheo_ZealStacks = QuickTheo_ZealStacks + 1
+            RunMacroText("/startattack")
+            return true
+        else
+            return false -- wait for Crusader cooldown
+        end
+    elseif QuickTheo_ZealMode and hasZeal and QuickTheo_ZealStacks >= 3 then
+        -- Zeal rotation completed and buff is present, resume normal logic
+    elseif QuickTheo_ZealMode and not hasZeal and QuickTheo_ZealStacks >= 3 then
+        -- Reset and restart Zeal logic
+        QuickTheo_ZealStacks = 0
+        return false
+    end
+
+    local hasHolyMight = TheoDPS_HasBuff("Holy Might")
+    local holyReady, holyStart, holyDur = IsSpellReady("Holy Strike")
+    local holyCooldownLeft = holyReady and 0 or (holyStart + holyDur - GetTime())
+    local holyMightLeft = math.max(0, QuickTheo_HolyMightExpireTime - GetTime())
+
+    if not hasHolyMight and holyReady then
+        CastSpellByName("Holy Strike")
+        QuickTheo_HolyMightExpireTime = GetTime() + 20
+        RunMacroText("/startattack")
+        QuickTheo_ZealStacks = 0
+        return true
+    end
+
+    if holyMightLeft > 0 and math.abs(holyMightLeft - holyCooldownLeft) <= 2 and holyReady then
+        CastSpellByName("Holy Strike")
+        RunMacroText("/startattack")
+        QuickTheo_ZealStacks = 0
+        return true
+    end
+
+    if hasHolyMight and IsSpellReady("Crusader Strike") then
+        CastSpellByName("Crusader Strike")
+        RunMacroText("/startattack")
+        return true
+    end
+
+    return false
+end
+
 local function TheoDPS_CastAppropriateSeal()
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
@@ -51,52 +111,18 @@ local function TheoDPS_CastAppropriateSeal()
     local preferredSeal = QuickTheo_UseSealOfRighteousness and "Seal of Righteousness" or "Seal of Command"
 
     if QuickTheo_UseWisdomFallback and manaPercent <= 0.20 then
-        if not TheoDPS_HasPlayerBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
+        if not TheoDPS_HasBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
             CastSpellByName("Seal of Wisdom")
             RunMacroText("/startattack")
             return true
         end
     else
-        if not TheoDPS_HasPlayerBuff(preferredSeal) and IsSpellReady(preferredSeal) then
+        if not TheoDPS_HasBuff(preferredSeal) and IsSpellReady(preferredSeal) then
             CastSpellByName(preferredSeal)
             RunMacroText("/startattack")
             return true
         end
     end
-    return false
-end
-
-local function TheoDPS_CastStrike()
-    if not TheoDPS_IsTargetValid() then return false end
-
-    local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
-    if not inRange then return false end
-
-    local hasHolyMight = TheoDPS_HasPlayerBuff("Holy Might")
-    local holyReady, holyStart, holyDur = IsSpellReady("Holy Strike")
-    local crusaderReady, crusaderStart, crusaderDur = IsSpellReady("Crusader Strike")
-    local holyCooldownLeft = holyReady and 0 or (holyStart + holyDur - GetTime())
-    local holyMightLeft = math.max(0, QuickTheo_HolyMightExpireTime - GetTime())
-
-    if not hasHolyMight and holyReady then
-        CastSpellByName("Holy Strike")
-        QuickTheo_HolyMightExpireTime = GetTime() + 20
-        RunMacroText("/startattack")
-        return true
-    end
-
-    if holyMightLeft > 0 and math.abs(holyMightLeft - holyCooldownLeft) <= 2 and holyReady then
-        CastSpellByName("Holy Strike")
-        RunMacroText("/startattack")
-        return true
-    end
-
-    if hasHolyMight and crusaderReady then
-        CastSpellByName("Crusader Strike")
-        RunMacroText("/startattack")
-        return true
-    end
-
     return false
 end
 
@@ -170,6 +196,27 @@ local function TheoDPS_CastConsecration()
     return false
 end
 
+local function QuickTheo_ToggleZealMode()
+    QuickTheo_ZealMode = not QuickTheo_ZealMode
+    QuickTheo_ZealStacks = 0
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Zeal Mode: " .. (QuickTheo_ZealMode and "ON" or "OFF"))
+end
+
+local function QuickTheo_ToggleWisdomFallback()
+    QuickTheo_UseWisdomFallback = not QuickTheo_UseWisdomFallback
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Wisdom Fallback at 20%: " .. (QuickTheo_UseWisdomFallback and "ON" or "OFF"))
+end
+
+local function QuickTheo_ToggleConsecration()
+    QuickTheo_UseConsecration = not QuickTheo_UseConsecration
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Consecration: " .. (QuickTheo_UseConsecration and "ON" or "OFF"))
+end
+
+local function QuickTheo_ToggleSealOfRighteousness()
+    QuickTheo_UseSealOfRighteousness = not QuickTheo_UseSealOfRighteousness
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Seal Preference: " .. (QuickTheo_UseSealOfRighteousness and "Righteousness" or "Command"))
+end
+
 local function QuickTheoDPS_RunLogic()
     if IsSpellReady("Perception") then
         CastSpellByName("Perception")
@@ -193,21 +240,6 @@ function QuickTheoDPS_Command()
     QuickTheoDPS_RunLogic()
 end
 
-local function QuickTheo_ToggleWisdomFallback()
-    QuickTheo_UseWisdomFallback = not QuickTheo_UseWisdomFallback
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Wisdom Fallback at 20%: " .. (QuickTheo_UseWisdomFallback and "ON" or "OFF"))
-end
-
-local function QuickTheo_ToggleConsecration()
-    QuickTheo_UseConsecration = not QuickTheo_UseConsecration
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Consecration: " .. (QuickTheo_UseConsecration and "ON" or "OFF"))
-end
-
-local function QuickTheo_ToggleSealOfRighteousness()
-    QuickTheo_UseSealOfRighteousness = not QuickTheo_UseSealOfRighteousness
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Seal Preference: " .. (QuickTheo_UseSealOfRighteousness and "Righteousness" or "Command"))
-end
-
 local function InitQuickTheoDPS()
     SLASH_QUICKTHEODPS1 = "/qhtheodps"
     SlashCmdList["QUICKTHEODPS"] = QuickTheoDPS_Command
@@ -217,6 +249,8 @@ local function InitQuickTheoDPS()
     SlashCmdList["QHCONSECRATION"] = QuickTheo_ToggleConsecration
     SLASH_QHSPELLRET1 = "/qhspellret"
     SlashCmdList["QHSPELLRET"] = QuickTheo_ToggleSealOfRighteousness
+    SLASH_QHZEAL1 = "/zealmode"
+    SlashCmdList["QHZEAL"] = QuickTheo_ToggleZealMode
 end
 
 local dpsFrame = CreateFrame("Frame")
