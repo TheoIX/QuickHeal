@@ -68,6 +68,7 @@ local TheoMode_LastHealedTarget = nil
 local QuickTheo_SealTime = 0
 local QuickTheo_LastSealCast = nil
 local QuickTheo_WaitingForJudgement = false
+local Theo_LastHolyLightTime = 0
 
 -- =========================================
 -- Core TheoMode Logic
@@ -245,6 +246,9 @@ function Theo_CastHolyShock()
 end
 
 function Theo_CastHolyLight()
+    local now = GetTime()
+    if now - Theo_LastHolyLightTime < 2 then return false end
+
     local hasJudgement = QuickHeal_DetectBuff("player", "ability_paladin_judgementblue")
     if not hasJudgement or not IsSpellReady("Holy Light") then return false end
 
@@ -272,6 +276,7 @@ function Theo_CastHolyLight()
     if lowestTarget then
         CastSpellByName("Holy Light(Rank 9)")
         SpellTargetUnit(lowestTarget)
+        Theo_LastHolyLightTime = now
         return true
     end
     return false
@@ -285,13 +290,15 @@ local function HookTheoModeLogic()
     if not QuickHeal_Theo_Hooked and type(QuickHeal_Command_Paladin) == "function" then
         local original = QuickHeal_Command_Paladin
         QuickHeal_Command_Paladin = function(msg)
-            if QuickHeal_EnableTheomode then
-                Theo_CastHolyShock()
-                Theo_CastHolyLight()
-                local struck = Theo_CastHolyStrike()
-                if not struck then original(msg) end
+    if QuickHeal_EnableTheomode then
+        local casted = Theo_CastHolyShock()
+        casted = Theo_CastHolyLight() or casted
+        casted = Theo_CastHolyStrike() or casted
+                if not casted and msg ~= "hot" then original(msg) end
             else
-                original(msg)
+        if msg ~= "hot" and msg ~= "shock" and msg ~= "light" then
+            original(msg)
+        end
             end
         end
         QuickHeal_Theo_Hooked = true
