@@ -159,7 +159,7 @@ local function Theo_UseUtilities()
         end
     end
 
-if (mana / maxMana) < 0.65 and (GetTime() - Theo_LastTeaUse) >= 120 then
+if (mana / maxMana) < 0.5 and (GetTime() - Theo_LastTeaUse) >= 120 then
     local foundTea = false
     for bag = 0, 4 do
         for slot = 1, GetContainerNumSlots(bag) do
@@ -336,9 +336,9 @@ local function HookTheoModeLogic()
         local original = QuickHeal_Command_Paladin
         QuickHeal_Command_Paladin = function(msg)
     if QuickHeal_EnableTheomode then
-        local casted = Theo_CastHolyShock()
-        casted = Theo_CastHolyLight() or casted
-        casted = Theo_CastHolyStrike() or casted
+        local casted = Theo_CastHolyStrike()
+casted = Theo_CastHolyShock()  or casted
+casted = Theo_CastHolyLight()  or casted
                 if not casted and msg ~= "hot" then original(msg) end
             else
         if msg ~= "hot" and msg ~= "shock" and msg ~= "light" then
