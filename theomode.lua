@@ -331,25 +331,20 @@ end
 -- Logic Hooking
 -- =========================================
 
-local function HookTheoModeLogic()
-    if not QuickHeal_Theo_Hooked and type(QuickHeal_Command_Paladin) == "function" then
-        local original = QuickHeal_Command_Paladin
-        QuickHeal_Command_Paladin = function(msg)
+-- /theoqh: TheoMode spells → fallback to QuickHeal()
+local function TheoQHHandler()
     if QuickHeal_EnableTheomode then
         local casted = Theo_CastHolyStrike()
 casted = Theo_CastHolyShock()  or casted
 casted = Theo_CastHolyLight()  or casted
-                if not casted and msg ~= "hot" then original(msg) end
-            else
-        if msg ~= "hot" and msg ~= "shock" and msg ~= "light" then
-            original(msg)
+        if not casted then
+            QuickHeal()
         end
-            end
-        end
-        QuickHeal_Theo_Hooked = true
+    else
+        QuickHeal()
     end
 end
-HookTheoModeLogic()
+
 
 -- =========================================
 -- Slash Commands
@@ -375,11 +370,5 @@ SlashCmdList["THEOTOGGLES"] = function()
     end
 end
 
+SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
-SlashCmdList["THEOQH"] = function(msg)
-    if QuickHeal_Command_Paladin then
-        QuickHeal_Command_Paladin(msg)
-    else
-        DEFAULT_CHAT_FRAME:AddMessage("QuickHeal not loaded.", 1, 0, 0)
-    end
-end
