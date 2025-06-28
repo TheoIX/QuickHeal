@@ -18,6 +18,19 @@ local function IsSpellReady(spellName)
     return false, 0, 0
 end
 
+-- Add this function at the top with your other utility functions
+local function HasItemInBags(itemName)
+    for bag = 0, 4 do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link and string.find(link, itemName) then
+                return bag, slot
+            end
+        end
+    end
+    return nil
+end
+
 local function GetSharedCooldown(spellNames)
     for i = 1, 300 do
         local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
@@ -97,25 +110,28 @@ local function IsCrusaderStrikeConditionMet()
     return not hasInjuredNearby and cooldownRemaining > 15
 end
 
+local Theo_LastTeaUse = 0
+
 local function Theo_UseUtilities()
     if not Theo_EnableUtilities then return end
     local now = GetTime()
 
+    -- Perception Logic
     if now - Theo_LastPerception > 180 then
-        local ready = IsSpellReady("Perception")
-        if ready then
+        if IsSpellReady("Perception") then
             CastSpellByName("Perception")
             Theo_LastPerception = now
         end
     end
 
+    -- Trinket Logic
     local mana = UnitMana("player")
     local maxMana = UnitManaMax("player")
 
     for slot = 13, 14 do
         local item = GetInventoryItemLink("player", slot)
         if item then
-            if string.find(item, "Warmth of Forgiveness") and maxMana > 0 and (mana / maxMana) < 0.85 then
+            if string.find(item, "Warmth of Forgiveness") and (mana / maxMana) < 0.85 then
                 local start, duration, enable = GetInventoryItemCooldown("player", slot)
                 if enable == 1 and (start == 0 or duration == 0) then
                     UseInventoryItem(slot)
@@ -142,6 +158,35 @@ local function Theo_UseUtilities()
             end
         end
     end
+
+if (mana / maxMana) < 0.65 and (GetTime() - Theo_LastTeaUse) >= 120 then
+    local foundTea = false
+    for bag = 0, 4 do
+        for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link and string.find(link, "Nordanaar Herbal Tea") then
+                foundTea = true
+                local start, duration, enable = GetContainerItemCooldown(bag, slot)
+                local remaining = (start > 0) and (duration - (GetTime() - start)) or 0
+                if enable == 1 and remaining <= 0 then
+                    UseContainerItem(bag, slot)
+                    if SpellIsTargeting() then SpellStopTargeting() end
+                    Theo_LastTeaUse = GetTime()
+                    DEFAULT_CHAT_FRAME:AddMessage("Nordanaar Herbal Tea used successfully!", 0, 1, 0)
+                end
+                break
+            end
+        end
+        if foundTea then break end
+    end
+    if not foundTea then
+        -- Only warn once every 10 seconds to avoid spam
+        if not Theo_LastTeaWarning or (GetTime() - Theo_LastTeaWarning) > 10 then
+            DEFAULT_CHAT_FRAME:AddMessage("No Nordanaar Herbal Tea in inventory.", 1, 0, 0)
+            Theo_LastTeaWarning = GetTime()
+        end
+    end
+end
 end
 
 function Theo_CastHolyStrike()
