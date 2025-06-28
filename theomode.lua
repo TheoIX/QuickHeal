@@ -221,7 +221,7 @@ function Theo_CastHolyStrike()
     end
 
     if not isValidTarget() then
-        TargetNearestEnemy()
+        RunScript('UnitXP("target", "nearestEnemy")')
     end
 
     if isValidTarget() then
@@ -229,12 +229,12 @@ function Theo_CastHolyStrike()
         if sharedReady then
             if IsCrusaderStrikeConditionMet() and IsSpellReady("Crusader Strike") then
                 CastSpellByName("Crusader Strike")
-                AttackTarget()
+                RunMacroText("/startattack")
                 QuickTheo_WaitingForJudgement = false
                 return true
             elseif IsSpellReady("Holy Strike") then
                 CastSpellByName("Holy Strike")
-                AttackTarget()
+                RunMacroText("/startattack")
                 QuickTheo_WaitingForJudgement = false
                 return true
             end
