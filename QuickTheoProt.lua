@@ -141,12 +141,10 @@ local function Theo_CastJudgement()
     return false
 end
  
-
-
 -- Main tanking handler with buff/judgement hysteresis and combat rotation
 function QuickTheoProt()
 RunScript('UnitXP("target", "nearestEnemy")')
-    -- Mana and judgement state
+ -- Mana and judgement state
     local currentMana = UnitMana("player")
     local maxMana = UnitManaMax("player")
     local manaPct = (currentMana / maxMana) * 100
@@ -172,11 +170,6 @@ RunScript('UnitXP("target", "nearestEnemy")')
     if Theo_CastConsecration() then return end
     if Theo_CastHolyShield() then return end
 end
-
--- Auto-attack on target changes
-local autoFrame = CreateFrame("Frame")
-autoFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-autoFrame:SetScript("OnEvent", EnsureAutoAttack)
 
 -- Event frame: apply Righteous Fury on login and after death
 local eventFrame = CreateFrame("Frame")
