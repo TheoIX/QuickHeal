@@ -229,12 +229,12 @@ function Theo_CastHolyStrike()
         if sharedReady then
             if IsCrusaderStrikeConditionMet() and IsSpellReady("Crusader Strike") then
                 CastSpellByName("Crusader Strike")
-                RunMacroText("/startattack")
+                RunScript('UnitXP("target", "nearestEnemy")')
                 QuickTheo_WaitingForJudgement = false
                 return true
             elseif IsSpellReady("Holy Strike") then
                 CastSpellByName("Holy Strike")
-                RunMacroText("/startattack")
+                RunScript('UnitXP("target", "nearestEnemy")')
                 QuickTheo_WaitingForJudgement = false
                 return true
             end
