@@ -71,6 +71,7 @@ end
 -- Globals & Toggles
 -- =========================================
 
+QuickHeal_EnableMouseoverFL7 = false
 Theo_EnableUtilities = false
 Theo_LastPerception = 0
 Theo_LastWarmth = 0
@@ -333,6 +334,19 @@ end
 
 -- /theoqh: TheoMode spells → fallback to QuickHeal()
 local function TheoQHHandler()
+
+    if QuickHeal_EnableMouseoverFL7 then
+        if UnitExists("mouseover")
+        and UnitIsFriend("player", "mouseover")
+        and not UnitIsDeadOrGhost("mouseover")
+        and IsSpellInRange("Flash of Light(Rank 7)", "mouseover") == 1
+        and IsSpellReady("Flash of Light") then
+            CastSpellByName("Flash of Light(Rank 7)")
+            SpellTargetUnit("mouseover")
+            return
+        end
+    end
+
     if QuickHeal_EnableTheomode then
         local casted = Theo_CastHolyStrike()
 casted = Theo_CastHolyShock()  or casted
@@ -357,6 +371,16 @@ SlashCmdList["THEOMODE"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("TheoMode ENABLED", 0, 1, 0)
     else
         DEFAULT_CHAT_FRAME:AddMessage("TheoMode DISABLED", 1, 0, 0)
+    end
+end
+
+SLASH_THEOFL7TOGGLE1 = "/theofl7"
+SlashCmdList["THEOFL7TOGGLE"] = function()
+    QuickHeal_EnableMouseoverFL7 = not QuickHeal_EnableMouseoverFL7
+    if QuickHeal_EnableMouseoverFL7 then
+        DEFAULT_CHAT_FRAME:AddMessage("Theo Mouseover FL7 ENABLED", 0, 1, 0)
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Theo Mouseover FL7 DISABLED", 1, 0, 0)
     end
 end
 
