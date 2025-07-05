@@ -11,6 +11,36 @@ local BOOKTYPE_SPELL = "spell"
 -- State: track whether Judgement casting is enabled (hysteresis)
 local judgementEnabled = true
 
+-- Mode toggles: Main Tank and Off Tank
+local mainTankMode = false
+local offTankMode = falsew
+
+local function GetThreatPct(unit)
+  -- try TWThreat first
+  local api = _G["TWThreatAPI"]
+  if api and api.threats then
+    local n = UnitName(unit)
+    return tonumber(api.threats[n]) or 0
+  end
+  -- fallback to Blizzard API
+  local _, _, pctScaled = UnitDetailedThreatSituation("player", unit)
+  return pctScaled or 0
+end
+
+-- Player damage detection: has taken damage if health below max
+local function PlayerTookDamage()
+    return UnitHealth("player") < UnitHealthMax("player")
+end
+
+-- in your Prot logic:
+-- local threatPct = GetThreatPct("target")
+-- if threatPct < 80 then
+ -- CastSpellByName 
+-- else
+  -- keep your normal rotation (e.g. Judgments, Crusader Strike, etc.)
+-- end
+
+
 -- Workaround buff detection using tooltip (adapted from QuickTheoDPS)
 local function TheoProt_HasBuff(buffName)
     for i = 1, 40 do
@@ -82,6 +112,31 @@ local function Theo_CastHolyStrike()
     return false
 end
 
+-- Cast Crusader Strike
+local function Theo_CastCrusaderStrike()
+    if IsSpellReady("Crusader Strike")
+       and UnitExists("target") and UnitCanAttack("player", "target")
+       and not UnitIsDeadOrGhost("target")
+       and IsSpellInRange("Crusader Strike", "target") == 1 then
+        CastSpellByName("Crusader Strike")
+        SpellTargetUnit("target")
+        return true
+    end
+    return false
+end
+
+local function Theo_CastHammerOfWrath()
+    if IsSpellReady("Hammer of Wrath")
+       and UnitExists("target") and UnitCanAttack("player", "target")
+       and not UnitIsDeadOrGhost("target")
+       and (UnitHealth("target") / UnitHealthMax("target") * 100) <= 20 then
+        CastSpellByName("Hammer of Wrath")
+        SpellTargetUnit("target")
+        return true
+    end
+    return false
+end
+
 -- Cast Consecration with libram swap if enemy within interact distance
 local function Theo_CastConsecration()
     if IsSpellReady("Consecration")
@@ -141,22 +196,55 @@ local function Theo_CastJudgement()
     return false
 end
  
--- Main tanking handler with buff/judgement hysteresis and combat rotation
 function QuickTheoProt()
-RunScript('UnitXP("target", "nearestEnemy")')
- -- Mana and judgement state
+    RunScript('UnitXP("target", "nearestEnemy")')
+
+    
+    if mainTankMode then
+        local targetHPpct = (UnitHealth("target") / UnitHealthMax("target")) * 100
+
+        -- Debug message to confirm MT mode runs
+        local threatPct = GetThreatPct("target"); 
+    if threatPct and threatPct > 0 then 
+        DEFAULT_CHAT_FRAME:AddMessage("TWThreat Active - Threat: "..threatPct.."%", 0, 1, 0) 
+    end
+
+        -- Priority #1: Hammer of Wrath (below 20% HP)
+        if targetHPpct <= 20 and Theo_CastHammerOfWrath() then return end
+
+        -- Execute standard MT rotation clearly and sequentially
+        if Theo_CastHolyStrike() then return end
+        if Theo_CastHolyShield() then return end
+        if Theo_CastSealOfRighteousness() then return end
+        if Theo_CastJudgement() then return end
+        if Theo_CastConsecration() then return end
+
+        return  -- Explicit exit for MT logic
+    end
+
+
+    -- Off Tank Mode
+    if offTankMode then
+        if PlayerTookDamage() and Theo_CastHolyShield() then
+            return
+        end
+        if Theo_CastHolyStrike() then return end
+        if Theo_CastSealOfRighteousness() then return end
+        if Theo_CastJudgement() then return end
+        return  -- ensure no standard behavior is checked
+    end
+
+    -- Standard Behavior (Only runs if both MT and OT are disabled)
     local currentMana = UnitMana("player")
     local maxMana = UnitManaMax("player")
     local manaPct = (currentMana / maxMana) * 100
 
-    -- Hysteresis: disable Judgement below 40%, re-enable above 75%
     if manaPct < 40 then
         judgementEnabled = false
     elseif manaPct > 75 then
         judgementEnabled = true
     end
 
-    -- Seal and Judgement logic
     if judgementEnabled then
         if Theo_CastSealOfRighteousness() then return end
         if Theo_CastJudgement() then return end
@@ -164,12 +252,12 @@ RunScript('UnitXP("target", "nearestEnemy")')
         if Theo_CastSealOfWisdom() then return end
     end
 
-    -- Combat rotation
     if Theo_CastExorcism() then return end
     if Theo_CastHolyStrike() then return end
     if Theo_CastConsecration() then return end
     if Theo_CastHolyShield() then return end
 end
+
 
 -- Event frame: apply Righteous Fury on login and after death
 local eventFrame = CreateFrame("Frame")
@@ -188,3 +276,27 @@ end)
 SLASH_QUICKTHEOPROT1 = "/quicktheoprot"
 SLASH_QUICKTHEOPROT2 = "/qhtprot"
 SlashCmdList["QUICKTHEOPROT"] = QuickTheoProt
+
+-- Main Tank Mode toggle: /mtmode
+SLASH_MAINTANKMODE1 = "/mtmode"
+SlashCmdList["MAINTANKMODE"] = function()
+    mainTankMode = not mainTankMode
+    if mainTankMode then
+        DEFAULT_CHAT_FRAME:AddMessage("Main Tank Mode ENABLED", 0, 1, 0)
+        offTankMode = false
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Main Tank Mode DISABLED", 1, 0, 0)
+    end
+end
+
+-- Off Tank Mode toggle: /otmode
+SLASH_OFFTANKMODE1 = "/otmode"
+SlashCmdList["OFFTANKMODE"] = function()
+    offTankMode = not offTankMode
+    if offTankMode then
+        DEFAULT_CHAT_FRAME:AddMessage("Off Tank Mode ENABLED", 0, 1, 0)
+        mainTankMode = false
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Off Tank Mode DISABLED", 1, 0, 0)
+    end
+end
