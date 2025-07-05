@@ -1,5 +1,5 @@
 -- QuickTheoDPS: Retribution Paladin DPS macro for Turtle WoW (1.12)
-
+QuickTheo_LionheartMode = false
 QuickTheo_UseSealOfRighteousness = false
 QuickTheo_UseWisdomFallback = false
 QuickTheo_UseConsecration = false
@@ -51,7 +51,16 @@ local function TheoDPS_CastStrike()
     end
 
     local inRange = IsSpellInRange("Holy Strike", "target") == 1 or IsSpellInRange("Crusader Strike", "target") == 1
-    if not inRange then return false end
+    if not inRange then return false 
+end
+
+if QuickTheo_LionheartMode then
+        if IsSpellReady("Crusader Strike") then
+            CastSpellByName("Crusader Strike")
+            return true
+        end
+        return false
+    end
 
     local hasZeal = TheoDPS_HasBuff("Zeal")
 
@@ -72,7 +81,7 @@ local function TheoDPS_CastStrike()
         QuickTheo_ZealStacks = 0
         return false
     end
-
+   
     local hasHolyMight = TheoDPS_HasBuff("Holy Might")
     local holyReady, holyStart, holyDur = IsSpellReady("Holy Strike")
     local holyCooldownLeft = holyReady and 0 or (holyStart + holyDur - GetTime())
@@ -184,6 +193,11 @@ local function TheoDPS_CastConsecration()
     return false
 end
 
+local function QuickTheo_ToggleLionheartMode()
+    QuickTheo_LionheartMode = not QuickTheo_LionheartMode
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Lionheart Mode: " .. (QuickTheo_LionheartMode and "ON" or "OFF"))
+end
+
 local function QuickTheo_ToggleZealMode()
     QuickTheo_ZealMode = not QuickTheo_ZealMode
     QuickTheo_ZealStacks = 0
@@ -236,6 +250,8 @@ local function InitQuickTheoDPS()
     SlashCmdList["QHSPELLRET"] = QuickTheo_ToggleSealOfRighteousness
     SLASH_QHZEAL1 = "/zealmode"
     SlashCmdList["QHZEAL"] = QuickTheo_ToggleZealMode
+    SLASH_QHLIONHEART1 = "/lionheart"
+    SlashCmdList["QHLIONHEART"] = QuickTheo_ToggleLionheartMode
 end
 
 local dpsFrame = CreateFrame("Frame")
