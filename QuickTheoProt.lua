@@ -13,8 +13,9 @@ local judgementEnabled = true
 
 -- Mode toggles: Main Tank and Off Tank
 local mainTankMode = false
-local offTankMode = falsew
-
+local offTankMode = false
+-- at the top, alongside your other mode toggles:
+local farmMode = false
 local function GetThreatPct(unit)
   -- try TWThreat first
   local api = _G["TWThreatAPI"]
@@ -70,6 +71,17 @@ local function EquipLibram(itemName)
     return false
 end
 
+-- helper: check target for a named debuff (Judgement of Wisdom)
+local function TheoProt_TargetHasDebuff(debuffName)
+    for i = 1, 16 do
+        local name = UnitDebuff("target", i)
+        if name == debuffName then
+            return true
+        end
+    end
+    return false
+end
+
 -- Utility: check spell cooldown by scanning the spellbook
 local function IsSpellReady(spellName)
     for idx = 1, 300 do
@@ -80,6 +92,17 @@ local function IsSpellReady(spellName)
             local start, duration, enabled = GetSpellCooldown(idx, BOOKTYPE_SPELL)
             return enabled == 1 and (duration == 0 or (start + duration) <= GetTime())
         end
+    end
+    return false
+end
+
+-- helper: cast Holy Shock on yourself if <70% HP
+local function Theo_CastHolyShockSelf()
+    local hpPct = (UnitHealth("player") / UnitHealthMax("player")) * 100
+    if IsSpellReady("Holy Shock") and hpPct < 70 then
+        CastSpellByName("Holy Shock")
+        SpellTargetUnit("player")
+        return true
     end
     return false
 end
@@ -234,6 +257,42 @@ function QuickTheoProt()
         return  -- ensure no standard behavior is checked
     end
 
+if farmMode then
+    -- 1) Seal of Wisdom
+    if Theo_CastSealOfWisdom() then return end
+
+    -- 2) Judgement of Wisdom
+    if IsSpellReady("Judgement")
+       and UnitExists("target") and UnitCanAttack("player","target")
+       and not UnitIsDeadOrGhost("target")
+       and IsSpellInRange("Judgement","target")==1
+       and not TheoProt_TargetHasDebuff("Judgement of Wisdom")
+    then
+        CastSpellByName("Judgement")
+        SpellTargetUnit("target")
+        return
+    end
+
+    -- 3) Holy Shock on self <70% HP
+    if Theo_CastHolyShockSelf() then return end
+
+    -- 4) Strike logic: Crusader if Holy Shock on cooldown, then Holy Strike
+    if not IsSpellReady("Holy Shock") then
+        if Theo_CastCrusaderStrike() then return end
+    end
+    if Theo_CastHolyStrike() then return end
+
+    -- 5) Consecration
+    if Theo_CastConsecration() then return end
+
+    -- 6) Holy Shield
+    if Theo_CastHolyShield() then return end
+
+    -- nothing left to do
+    return
+end
+
+
     -- Standard Behavior (Only runs if both MT and OT are disabled)
     local currentMana = UnitMana("player")
     local maxMana = UnitManaMax("player")
@@ -298,5 +357,19 @@ SlashCmdList["OFFTANKMODE"] = function()
         mainTankMode = false
     else
         DEFAULT_CHAT_FRAME:AddMessage("Off Tank Mode DISABLED", 1, 0, 0)
+    end
+end
+
+-- add the FarmMode slash-command toggle
+SLASH_FARMMODE1 = "/farmmode"
+SlashCmdList["FARMMODE"] = function()
+    farmMode = not farmMode
+    if farmMode then
+        DEFAULT_CHAT_FRAME:AddMessage("Farm Mode ENABLED", 0, 1, 0)
+        -- ensure other modes are off
+        mainTankMode = false
+        offTankMode  = false
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Farm Mode DISABLED", 1, 0, 0)
     end
 end
