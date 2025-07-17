@@ -12,6 +12,7 @@ local BOOKTYPE_SPELL = "spell"
 local judgementEnabled = true
 
 -- Mode toggles: Main Tank and Off Tank
+local trinketMode = false
 local mainTankMode = false
 local offTankMode = false
 -- at the top, alongside your other mode toggles:
@@ -71,7 +72,6 @@ local function EquipLibram(itemName)
     return false
 end
 
--- helper: check target for a named debuff (Judgement of Wisdom)
 local function TheoProt_TargetHasDebuff(debuffName)
     for i = 1, 16 do
         local name = UnitDebuff("target", i)
@@ -206,14 +206,48 @@ local function Theo_CastSealOfWisdom()
     return false
 end
 
+-- Cast the proper “strike” when Holy Shock isn’t available
+local function Theo_CastStrike()
+    -- if Holy Shock is on CD, dump into Crusader Strike
+    if not IsSpellReady("Holy Shock") and IsSpellReady("Crusader Strike") then
+        CastSpellByName("Crusader Strike")
+        return true
+    end
+    -- otherwise use Holy Strike whenever it’s ready
+    if IsSpellReady("Holy Strike") then
+        CastSpellByName("Holy Strike")
+        return true
+    end
+    return false
+end
+
+-- Cast Seal of Light if buff missing
+local function Theo_CastSealOfLight()
+    -- don't recast if we already have the buff
+    if TheoProt_HasBuff("Seal of Light") then 
+        return false 
+    end
+    -- if it’s off cooldown, cast it
+    if IsSpellReady("Seal of Light") then
+        CastSpellByName("Seal of Light")
+        return true
+    end
+    return false
+end
+
 -- Cast Judgement if ready and in range
 local function Theo_CastJudgement()
     if IsSpellReady("Judgement")
-       and UnitExists("target") and UnitCanAttack("player", "target")
+       and UnitExists("target") and UnitCanAttack("player","target")
        and not UnitIsDeadOrGhost("target")
-       and IsSpellInRange("Judgement", "target") == 1 then
+       and IsSpellInRange("Judgement","target")==1
+       and ( TheoProt_HasBuff("Seal of Wisdom")
+          or TheoProt_HasBuff("Seal of Light")
+          or TheoProt_HasBuff("Seal of Righteousness") )
+       and not TheoProt_TargetHasDebuff("Judgement of Wisdom")
+       and not TheoProt_TargetHasDebuff("Judgement of Light")
+    then
         CastSpellByName("Judgement")
-        SpellTargetUnit("target")
         return true
     end
     return false
@@ -221,8 +255,22 @@ end
  
 function QuickTheoProt()
     RunScript('UnitXP("target", "nearestEnemy")')
+   
+    -- 0) Trinket usage (only fire on‑use trinkets)
+    if trinketMode then
+        -- slot 13
+        local start13, duration13, enable13 = GetInventoryItemCooldown("player", 13)
+        if enable13 == 1 and start13 == 0 then
+            UseInventoryItem(13)
+        end
+        -- slot 14
+        local start14, duration14, enable14 = GetInventoryItemCooldown("player", 14)
+        if enable14 == 1 and start14 == 0 then
+            UseInventoryItem(14)
+        end
+    end
 
-    
+  
     if mainTankMode then
         local targetHPpct = (UnitHealth("target") / UnitHealthMax("target")) * 100
 
@@ -258,34 +306,39 @@ function QuickTheoProt()
     end
 
 if farmMode then
-    -- 1) Seal of Wisdom
-    if Theo_CastSealOfWisdom() then return end
 
-    -- 2) Judgement of Wisdom
-    if IsSpellReady("Judgement")
-       and UnitExists("target") and UnitCanAttack("player","target")
-       and not UnitIsDeadOrGhost("target")
-       and IsSpellInRange("Judgement","target")==1
-       and not TheoProt_TargetHasDebuff("Judgement of Wisdom")
-    then
-        CastSpellByName("Judgement")
-        SpellTargetUnit("target")
-        return
+    -- 1) Always start by ensuring Seal of Wisdom
+    if Theo_CastSealOfWisdom() then 
+        return 
     end
+
+    -- 1) Seal logic: switch between Seal of Light and Seal of Wisdom based on your HP/Mana
+    local hpPct   = (UnitHealth("player")   / UnitHealthMax("player"))   * 100
+    local manaPct = (UnitMana("player")     / UnitManaMax("player"))     * 100
+
+    -- If you’re low on health but have plenty of mana, cast Seal of Light
+    if manaPct > 80 and hpPct < 50 then
+        if Theo_CastSealOfLight() then return end
+
+    -- Once you’re healthy again, switch back to Seal of Wisdom
+    elseif hpPct > 85 then
+        if Theo_CastSealOfWisdom() then return end
+    end
+
+
+    --1) Cast Judgement if rules met
+    if Theo_CastJudgement() then return end
+
+    -- 2) Strike logic: Holy Shock fallback
+    if Theo_CastStrike() then return end
 
     -- 3) Holy Shock on self <70% HP
     if Theo_CastHolyShockSelf() then return end
 
-    -- 4) Strike logic: Crusader if Holy Shock on cooldown, then Holy Strike
-    if not IsSpellReady("Holy Shock") then
-        if Theo_CastCrusaderStrike() then return end
-    end
-    if Theo_CastHolyStrike() then return end
-
-    -- 5) Consecration
+    -- 4) Consecration
     if Theo_CastConsecration() then return end
 
-    -- 6) Holy Shield
+    -- 5) Holy Shield
     if Theo_CastHolyShield() then return end
 
     -- nothing left to do
@@ -373,3 +426,15 @@ SlashCmdList["FARMMODE"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("Farm Mode DISABLED", 1, 0, 0)
     end
 end
+
+-- Trinket Mode toggle: /trinketmode
+SLASH_TRINKETMODE1 = "/trinketmode"
+SlashCmdList["TRINKETMODE"] = function()
+    trinketMode = not trinketMode
+    if trinketMode then
+        DEFAULT_CHAT_FRAME:AddMessage("Trinket Mode ENABLED", 0, 1, 0)
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Trinket Mode DISABLED", 1, 0, 0)
+    end
+end
+
