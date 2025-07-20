@@ -6,6 +6,7 @@ QuickTheo_UseConsecration = false
 QuickTheo_HolyMightExpireTime = 0
 QuickTheo_ZealMode = false
 QuickTheo_ZealStacks = 0
+local theoUseTrinkets = false
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -224,6 +225,8 @@ local function QuickTheoDPS_RunLogic()
         CastSpellByName("Perception")
         return
     end
+
+
     TheoDPS_TargetEnemyIfNeeded()
 
     if TheoDPS_CastStrike() then return end
@@ -236,6 +239,20 @@ local function QuickTheoDPS_RunLogic()
 end
 
 function QuickTheoDPS_Command()
+    
+     if theoUseTrinkets then
+        -- slot 13
+        local start13, _, enable13 = GetInventoryItemCooldown("player", 13)
+        if enable13 == 1 and start13 == 0 then
+            UseInventoryItem(13)
+        end
+        -- slot 14
+        local start14, _, enable14 = GetInventoryItemCooldown("player", 14)
+        if enable14 == 1 and start14 == 0 then
+            UseInventoryItem(14)
+        end
+    end
+
     QuickTheoDPS_RunLogic()
 end
 
@@ -253,6 +270,18 @@ local function InitQuickTheoDPS()
     SLASH_QHLIONHEART1 = "/lionheart"
     SlashCmdList["QHLIONHEART"] = QuickTheo_ToggleLionheartMode
 end
+
+-- 2) Register its own slash (won’t collide with other addons)
+SLASH_THEOUSETRINKETS1 = "/usetrinkets"
+SlashCmdList["THEOUSETRINKETS"] = function()
+    theoUseTrinkets = not theoUseTrinkets
+    if theoUseTrinkets then
+        DEFAULT_CHAT_FRAME:AddMessage("Theo Trinkets: ON", 0, 1, 0)
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Theo Trinkets: OFF", 1, 0, 0)
+    end
+end
+
 
 local dpsFrame = CreateFrame("Frame")
 dpsFrame:RegisterEvent("PLAYER_LOGIN")
