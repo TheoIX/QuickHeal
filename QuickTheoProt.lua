@@ -307,33 +307,33 @@ function QuickTheoProt()
 
 if farmMode then
 
-    -- 1) Always start by ensuring Seal of Wisdom
-    if Theo_CastSealOfWisdom() then 
-        return 
+    
+    -- 1) Seal logic: switch between Seal of Light and Seal of Wisdom based on your HP/Mana
+    local currentMana = UnitMana("player")
+    local maxMana = UnitManaMax("player")
+    local manaPct = (currentMana / maxMana) * 100
+
+    if manaPct < 40 then
+        judgementEnabled = false
+    elseif manaPct > 75 then
+        judgementEnabled = true
     end
 
-    -- 1) Seal logic: switch between Seal of Light and Seal of Wisdom based on your HP/Mana
-    local hpPct   = (UnitHealth("player")   / UnitHealthMax("player"))   * 100
-    local manaPct = (UnitMana("player")     / UnitManaMax("player"))     * 100
-
-    -- If you’re low on health but have plenty of mana, cast Seal of Light
-    if manaPct > 80 and hpPct < 50 then
-        if Theo_CastSealOfLight() then return end
-
-    -- Once you’re healthy again, switch back to Seal of Wisdom
-    elseif hpPct > 85 then
+    if judgementEnabled then
+        if Theo_CastSealOfRighteousness() then return end
+        if Theo_CastJudgement() then return end
+    else
         if Theo_CastSealOfWisdom() then return end
     end
-
 
     --1) Cast Judgement if rules met
     if Theo_CastJudgement() then return end
 
-    -- 2) Strike logic: Holy Shock fallback
-    if Theo_CastStrike() then return end
-
     -- 3) Holy Shock on self <70% HP
     if Theo_CastHolyShockSelf() then return end
+
+    -- 2) Strike logic: Holy Shock fallback
+    if Theo_CastStrike() then return end
 
     -- 4) Consecration
     if Theo_CastConsecration() then return end
@@ -341,6 +341,7 @@ if farmMode then
     -- 5) Holy Shield
     if Theo_CastHolyShield() then return end
 
+    if Theo_CastExorcism() then return end
     -- nothing left to do
     return
 end
@@ -437,4 +438,3 @@ SlashCmdList["TRINKETMODE"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("Trinket Mode DISABLED", 1, 0, 0)
     end
 end
-
