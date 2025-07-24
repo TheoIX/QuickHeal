@@ -335,17 +335,20 @@ end
 -- /theoqh: TheoMode spells → fallback to QuickHeal()
 local function TheoQHHandler()
 
-    if QuickHeal_EnableMouseoverFL7 then
-        if UnitExists("mouseover")
-        and UnitIsFriend("player", "mouseover")
-        and not UnitIsDeadOrGhost("mouseover")
-        and IsSpellInRange("Flash of Light(Rank 7)", "mouseover") == 1
-        and IsSpellReady("Flash of Light") then
-            CastSpellByName("Flash of Light(Rank 7)")
-            SpellTargetUnit("mouseover")
-            return
-        end
+if QuickHeal_EnableMouseoverFL7 then
+    local focus = GetMouseFocus()
+    local unit = focus and focus.unit
+
+    if unit and UnitExists(unit)
+    and UnitIsFriend("player", unit)
+    and not UnitIsDeadOrGhost(unit)
+    and IsSpellInRange("Flash of Light(Rank 7)", unit) == 1
+    and IsSpellReady("Flash of Light") then
+        CastSpellByName("Flash of Light(Rank 7)")
+        SpellTargetUnit(unit)
+        return
     end
+end
 
     if QuickHeal_EnableTheomode then
         local casted = Theo_CastHolyStrike()
