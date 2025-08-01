@@ -23,8 +23,21 @@ local LibramMap = {
     ["Seal of Light"]        = "Libram of Hope",
     ["Seal of Justice"]      = "Libram of Hope",
     ["Seal of Command"]      = "Libram of Hope",
-    ["Seal of the Crusader"] = "Libram of Hope",
+    ["Seal of the Crusader"] = "Libram of Fervor",
     ["Seal of Righteousness"] = "Libram of Hope",
+    ["Devotion Aura"]        = "Libram of Truth",
+    ["Blessing of Might"]    = "Libram of Veracity",
+    ["Blessing of Wisdom"]   = "Libram of Veracity",
+    ["Blessing of Kings"]    = "Libram of Veracity",
+    ["Blessing of Sanctuary"] = "Libram of Veracity",
+    ["Blessing of Light"]    = "Libram of Veracity",
+    ["Blessing of Salvation"] = "Libram of Veracity",
+    ["Greater Blessing of Might"] = "Libram of Veracity",
+    ["Greater Blessing of Wisdom"] = "Libram of Veracity",
+    ["Greater Blessing of Kings"] = "Libram of Veracity",
+    ["Greater Blessing of Sanctuary"] = "Libram of Veracity",
+    ["Greater Blessing of Light"] = "Libram of Veracity",
+    ["Greater Blessing of Salvation"] = "Libram of Veracity",
 }
 
 -- Check for an item in bags, return bag and slot or nil
@@ -58,6 +71,15 @@ local Original_CastSpellByName = CastSpellByName
 function CastSpellByName(spellName, bookType)
     if LibramSwapEnabled then
         local libram = LibramMap[spellName]
+        if spellName == "Flash of Light" then
+            if not HasItemInBags("Libram of Light") then
+                libram = "Libram of Divinity"
+            end
+        elseif spellName == "Holy Strike" then
+            if not HasItemInBags("Libram of the Eternal Tower") then
+                libram = "Libram of Radiance"
+            end
+        end
         if libram then
             local currentLink = GetInventoryItemLink("player", 17)
             if not (currentLink and string.find(currentLink, libram)) then
@@ -74,6 +96,15 @@ function CastSpell(spellIndex, bookType)
     if LibramSwapEnabled then
         local spellName = GetSpellName(spellIndex, bookType)
         local libram = LibramMap[spellName]
+        if spellName == "Flash of Light" then
+            if not HasItemInBags("Libram of Light") then
+                libram = "Libram of Divinity"
+            end
+        elseif spellName == "Holy Strike" then
+            if not HasItemInBags("Libram of the Eternal Tower") then
+                libram = "Libram of Radiance"
+            end
+        end
         if libram then
             local currentLink = GetInventoryItemLink("player", 17)
             if not (currentLink and string.find(currentLink, libram)) then
