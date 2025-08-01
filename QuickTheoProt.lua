@@ -166,7 +166,6 @@ local function Theo_CastConsecration()
        and UnitExists("target") and UnitCanAttack("player", "target")
        and not UnitIsDeadOrGhost("target")
        and CheckInteractDistance("target", 1) then
-        EquipLibram("Libram of the Faithful")
         CastSpellByName("Consecration")
         return true
     end
@@ -179,7 +178,6 @@ local function Theo_CastHolyShield()
     if IsSpellReady("Holy Shield")
        and UnitExists("target") and UnitCanAttack("player", "target")
        and not UnitIsDeadOrGhost("target") then
-        EquipLibram("Libram of the Dreamguard")
         CastSpellByName("Holy Shield")
         return true
     end
@@ -313,9 +311,9 @@ if farmMode then
     local maxMana = UnitManaMax("player")
     local manaPct = (currentMana / maxMana) * 100
 
-    if manaPct < 40 then
+    if manaPct < 95 then
         judgementEnabled = false
-    elseif manaPct > 75 then
+    elseif manaPct > 99 then
         judgementEnabled = true
     end
 
