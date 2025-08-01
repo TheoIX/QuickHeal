@@ -7,6 +7,7 @@
 
 -- Toggle flag (default OFF)
 local LibramSwapEnabled = false
+local lastEquippedLibram = nil
 
 -- Mapping from spell names to libram items
 local LibramMap = {
@@ -55,15 +56,15 @@ end
 
 -- Equip the specified libram from your bags using HasItemInBags
 local function EquipLibram(itemName)
+    if lastEquippedLibram == itemName then return false end
     local bag, slot = HasItemInBags(itemName)
     if bag and slot then
         UseContainerItem(bag, slot)
+        lastEquippedLibram = itemName
         DEFAULT_CHAT_FRAME:AddMessage("|cFFAAAAFF[LibramSwap]: Equipped|r " .. itemName)
         return true
-    else
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFFF5555[LibramSwap]: Could not find|r " .. itemName)
-        return false
     end
+    return false
 end
 
 -- Override CastSpellByName to equip the proper libram before casting
@@ -125,3 +126,4 @@ SlashCmdList["LIBRAMSWAP"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("LibramSwap DISABLED", 1, 0, 0)
     end
 end
+
