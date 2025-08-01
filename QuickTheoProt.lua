@@ -341,6 +341,7 @@ if farmMode then
 
     if Theo_CastExorcism() then return end
     -- nothing left to do
+    if Theo_CastHammerOfWrath() then return end
     return
 end
 
