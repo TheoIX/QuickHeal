@@ -5,6 +5,14 @@
 -- Usage: Drop this file into your addon folder and list it in the .toc file. Toggle with /libramswap.
 -- Default state: OFF (use /libramswap to enable)
 
+-- Localize WoW API calls and Lua globals for performance
+local GetContainerNumSlots  = GetContainerNumSlots
+local GetContainerItemLink  = GetContainerItemLink
+local UseContainerItem      = UseContainerItem
+local GetInventoryItemLink  = GetInventoryItemLink
+local GetSpellName          = GetSpellName
+local string_find           = string.find
+
 -- Toggle flag (default OFF)
 local LibramSwapEnabled = false
 local lastEquippedLibram = nil
@@ -46,7 +54,7 @@ local function HasItemInBags(itemName)
     for bag = 0, 4 do
         for slot = 1, GetContainerNumSlots(bag) do
             local link = GetContainerItemLink(bag, slot)
-            if link and string.find(link, itemName) then
+            if link and string_find(link, itemName) then
                 return bag, slot
             end
         end
@@ -83,7 +91,7 @@ function CastSpellByName(spellName, bookType)
         end
         if libram then
             local currentLink = GetInventoryItemLink("player", 17)
-            if not (currentLink and string.find(currentLink, libram)) then
+            if not (currentLink and string_find(currentLink, libram)) then
                 EquipLibram(libram)
             end
         end
@@ -108,7 +116,7 @@ function CastSpell(spellIndex, bookType)
         end
         if libram then
             local currentLink = GetInventoryItemLink("player", 17)
-            if not (currentLink and string.find(currentLink, libram)) then
+            if not (currentLink and string_find(currentLink, libram)) then
                 EquipLibram(libram)
             end
         end
