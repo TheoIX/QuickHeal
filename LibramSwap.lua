@@ -1,9 +1,5 @@
 -- LibramSwap.lua
--- Author: You
--- Version: 1.0
--- Description: A Turtle WoW 1.12 addon that automatically equips the correct libram before casting specific Paladin spells.
--- Usage: Drop this file into your addon folder and list it in the .toc file. Toggle with /libramswap.
--- Default state: OFF (use /libramswap to enable)
+-- Optimized version with skip-swap if already equipped and 1.2s throttle
 
 -- Localize WoW API calls and Lua globals for performance
 local GetContainerNumSlots  = GetContainerNumSlots
@@ -12,10 +8,12 @@ local UseContainerItem      = UseContainerItem
 local GetInventoryItemLink  = GetInventoryItemLink
 local GetSpellName          = GetSpellName
 local string_find           = string.find
+local GetTime               = GetTime
 
--- Toggle flag (default OFF)
+-- Toggle flag
 local LibramSwapEnabled = false
 local lastEquippedLibram = nil
+local lastSwapTime = 0
 
 -- Mapping from spell names to libram items
 local LibramMap = {
@@ -62,69 +60,57 @@ local function HasItemInBags(itemName)
     return nil
 end
 
--- Equip the specified libram from your bags using HasItemInBags
+-- Equip libram only if not already equipped and 1.2s since last swap
 local function EquipLibram(itemName)
-    if lastEquippedLibram == itemName then return false end
+    if lastEquippedLibram == itemName and GetInventoryItemLink("player", 17) and string_find(GetInventoryItemLink("player", 17), itemName) then
+        return false
+    end
+    local now = GetTime()
+    if now - lastSwapTime < 1.2 then return false end
+
     local bag, slot = HasItemInBags(itemName)
     if bag and slot then
         UseContainerItem(bag, slot)
         lastEquippedLibram = itemName
+        lastSwapTime = now
         DEFAULT_CHAT_FRAME:AddMessage("|cFFAAAAFF[LibramSwap]: Equipped|r " .. itemName)
         return true
     end
     return false
 end
 
--- Override CastSpellByName to equip the proper libram before casting
+-- Override CastSpellByName
 local Original_CastSpellByName = CastSpellByName
 function CastSpellByName(spellName, bookType)
     if LibramSwapEnabled then
         local libram = LibramMap[spellName]
-        if spellName == "Flash of Light" then
-            if not HasItemInBags("Libram of Light") then
-                libram = "Libram of Divinity"
-            end
-        elseif spellName == "Holy Strike" then
-            if not HasItemInBags("Libram of the Eternal Tower") then
-                libram = "Libram of Radiance"
-            end
+        if spellName == "Flash of Light" and not HasItemInBags("Libram of Light") then
+            libram = "Libram of Divinity"
+        elseif spellName == "Holy Strike" and not HasItemInBags("Libram of the Eternal Tower") then
+            libram = "Libram of Radiance"
         end
-        if libram then
-            local currentLink = GetInventoryItemLink("player", 17)
-            if not (currentLink and string_find(currentLink, libram)) then
-                EquipLibram(libram)
-            end
-        end
+        if libram then EquipLibram(libram) end
     end
     return Original_CastSpellByName(spellName, bookType)
 end
 
--- Also override CastSpell for addons that use spellbook index casting
+-- Override CastSpell
 local Original_CastSpell = CastSpell
 function CastSpell(spellIndex, bookType)
     if LibramSwapEnabled then
         local spellName = GetSpellName(spellIndex, bookType)
         local libram = LibramMap[spellName]
-        if spellName == "Flash of Light" then
-            if not HasItemInBags("Libram of Light") then
-                libram = "Libram of Divinity"
-            end
-        elseif spellName == "Holy Strike" then
-            if not HasItemInBags("Libram of the Eternal Tower") then
-                libram = "Libram of Radiance"
-            end
+        if spellName == "Flash of Light" and not HasItemInBags("Libram of Light") then
+            libram = "Libram of Divinity"
+        elseif spellName == "Holy Strike" and not HasItemInBags("Libram of the Eternal Tower") then
+            libram = "Libram of Radiance"
         end
-        if libram then
-            local currentLink = GetInventoryItemLink("player", 17)
-            if not (currentLink and string_find(currentLink, libram)) then
-                EquipLibram(libram)
-            end
-        end
+        if libram then EquipLibram(libram) end
     end
     return Original_CastSpell(spellIndex, bookType)
 end
 
--- Register slash command just like TheoMode style at bottom
+-- Slash command
 SLASH_LIBRAMSWAP1 = "/libramswap"
 SlashCmdList["LIBRAMSWAP"] = function()
     LibramSwapEnabled = not LibramSwapEnabled
@@ -134,4 +120,3 @@ SlashCmdList["LIBRAMSWAP"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("LibramSwap DISABLED", 1, 0, 0)
     end
 end
-
