@@ -111,8 +111,6 @@ local function IsCrusaderStrikeConditionMet()
     return not hasInjuredNearby and cooldownRemaining > 15
 end
 
-local Theo_LastTeaUse = 0
-
 local function Theo_UseUtilities()
     if not Theo_EnableUtilities then return end
     local now = GetTime()
@@ -159,6 +157,7 @@ local function Theo_UseUtilities()
             end
         end
     end
+end
 
 function Theo_CastHolyStrike()
     UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
@@ -369,4 +368,5 @@ end
 
 SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
+
 
