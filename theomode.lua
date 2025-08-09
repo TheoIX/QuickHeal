@@ -160,36 +160,6 @@ local function Theo_UseUtilities()
         end
     end
 
-if (mana / maxMana) < 0.5 and (GetTime() - Theo_LastTeaUse) >= 120 then
-    local foundTea = false
-    for bag = 0, 4 do
-        for slot = 1, GetContainerNumSlots(bag) do
-            local link = GetContainerItemLink(bag, slot)
-            if link and string.find(link, "Nordanaar Herbal Tea") then
-                foundTea = true
-                local start, duration, enable = GetContainerItemCooldown(bag, slot)
-                local remaining = (start > 0) and (duration - (GetTime() - start)) or 0
-                if enable == 1 and remaining <= 0 then
-                    UseContainerItem(bag, slot)
-                    if SpellIsTargeting() then SpellStopTargeting() end
-                    Theo_LastTeaUse = GetTime()
-                    DEFAULT_CHAT_FRAME:AddMessage("Nordanaar Herbal Tea used successfully!", 0, 1, 0)
-                end
-                break
-            end
-        end
-        if foundTea then break end
-    end
-    if not foundTea then
-        -- Only warn once every 10 seconds to avoid spam
-        if not Theo_LastTeaWarning or (GetTime() - Theo_LastTeaWarning) > 10 then
-            DEFAULT_CHAT_FRAME:AddMessage("No Nordanaar Herbal Tea in inventory.", 1, 0, 0)
-            Theo_LastTeaWarning = GetTime()
-        end
-    end
-end
-end
-
 function Theo_CastHolyStrike()
     UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
     Theo_UseUtilities()
@@ -399,3 +369,4 @@ end
 
 SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
+
