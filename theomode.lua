@@ -31,6 +31,25 @@ local function HasItemInBags(itemName)
     return nil
 end
 
+-- Force-cast a spell on a specific friendly unit without accidentally hitting hostiles
+local function CastOnFriendlyUnit(spellName, unit)
+    if not UnitExists(unit) or not UnitIsFriend("player", unit) then return false end
+    local hadTarget = UnitExists("target")
+
+    -- switch to the friendly unit to guarantee the beneficial version
+    TargetUnit(unit)
+    CastSpellByName(spellName)
+
+    -- restore previous target if there was one
+    if hadTarget then
+        TargetLastTarget()
+    else
+        ClearTarget()
+    end
+    return true
+end
+
+
 local function GetSharedCooldown(spellNames)
     for i = 1, 300 do
         local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
@@ -214,48 +233,29 @@ function Theo_CastHolyStrike()
 end
 
 function Theo_CastHolyShock()
-    local holyShockReady = IsSpellReady("Holy Shock")
-    if not holyShockReady then return false end
+    local ready = IsSpellReady("Holy Shock")
+    if not ready then return false end
 
-    local bestTarget = nil
-    local hasDaybreak = false
-    local lowestHP = 1
+    local bestTarget, lowestHP = nil, 1
     local units = { "player", "party1", "party2", "party3", "party4" }
     for i = 1, 40 do table.insert(units, "raid" .. i) end
 
     for _, unit in ipairs(units) do
         if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-            local hp = UnitHealth(unit)
-            local maxhp = UnitHealthMax(unit)
-            if maxhp > 0 then
-                local hpRatio = hp / maxhp
-                if hpRatio < 0.8 and IsSpellInRange("Holy Shock", unit) == 1 then
-                    local hasBuff = false
-                    for j = 1, 40 do
-                        local buff = UnitBuff(unit, j)
-                        if not buff then break end
-                        if string.find(buff, "Daybreak") then
-                            hasBuff = true
-                            break
-                        end
-                    end
-                    if hasBuff and (not hasDaybreak or hpRatio < lowestHP) then
-                        bestTarget = unit
-                        hasDaybreak = true
-                        lowestHP = hpRatio
-                    elseif not hasDaybreak and hpRatio < lowestHP then
-                        bestTarget = unit
-                        lowestHP = hpRatio
-                    end
+            local hp, maxhp = UnitHealth(unit), UnitHealthMax(unit)
+            if maxhp and maxhp > 0 then
+                local r = hp / maxhp
+                -- pick lowest health target in range
+                if r < lowestHP and IsSpellInRange("Holy Shock", unit) == 1 then
+                    lowestHP, bestTarget = r, unit
                 end
             end
         end
     end
 
-    if bestTarget then
-        CastSpellByName("Holy Shock")
-        SpellTargetUnit(bestTarget)
-        return true
+    -- cast only if target is below 80%
+    if bestTarget and lowestHP < 0.80 then
+        return CastOnFriendlyUnit("Holy Shock", bestTarget)
     end
     return false
 end
@@ -368,5 +368,3 @@ end
 
 SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
-
-
