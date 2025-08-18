@@ -32,20 +32,44 @@ local function HasItemInBags(itemName)
 end
 
 -- Force-cast a spell on a specific friendly unit without accidentally hitting hostiles
+-- Safe, cursor-based heal cast that cannot hit enemies even if you’re spamming
 local function CastOnFriendlyUnit(spellName, unit)
-    if not UnitExists(unit) or not UnitIsFriend("player", unit) then return false end
+    if not UnitExists(unit) or not UnitIsFriend("player", unit) or UnitIsDeadOrGhost(unit) then
+        return false
+    end
+
     local hadTarget = UnitExists("target")
+    local restoreToFriendly = hadTarget and UnitIsFriend("player", "target")
+    local restorePossible = hadTarget
 
-    -- switch to the friendly unit to guarantee the beneficial version
-    TargetUnit(unit)
-    CastSpellByName(spellName)
-
-    -- restore previous target if there was one
-    if hadTarget then
-        TargetLastTarget()
-    else
+    -- If we currently have a hostile target, clear it so Holy Shock can’t “auto-fire” as damage.
+    if hadTarget and UnitCanAttack("player", "target") then
         ClearTarget()
     end
+
+    -- Start the spell. If a valid unit isn’t targeted, the client will enter targeting-cursor mode.
+    CastSpellByName(spellName)
+
+    -- If we’re in targeting mode, explicitly land it on the friendly unit.
+    if SpellIsTargeting() then
+        SpellTargetUnit(unit)
+    end
+
+    -- If for any reason it’s STILL targeting (e.g., out of range), stop targeting so we don’t miscast next keypress.
+    if SpellIsTargeting() then
+        SpellStopTargeting()
+        return false
+    end
+
+    -- Restore previous target (friendly or hostile). If we cleared a hostile, TargetLastTarget() will bring it back.
+    if restorePossible then
+        TargetLastTarget()
+        -- Edge case: if last target was friendly and we just healed them, you’ll still be on them; optional:
+        if not UnitExists("target") and restoreToFriendly then
+            -- nothing to do; leaving this branch for clarity
+        end
+    end
+
     return true
 end
 
@@ -368,3 +392,4 @@ end
 
 SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
+
