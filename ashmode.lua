@@ -1,4 +1,4 @@
--- ashmode.lua (cleaned version)
+-- ashmode.lua (updated)
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -41,6 +41,49 @@ local function QuickHeal_DetectBuff(unit, texture)
         end
     end
     return false
+end
+
+-- Force-cast a spell on a specific friendly unit without accidentally hitting hostiles
+-- (ported from theomode)
+-- Safe, cursor-based heal cast that cannot hit enemies even if you’re spamming
+local function CastOnFriendlyUnit(spellName, unit)
+    if not UnitExists(unit) or not UnitIsFriend("player", unit) or UnitIsDeadOrGhost(unit) then
+        return false
+    end
+
+    local hadTarget = UnitExists("target")
+    local restoreToFriendly = hadTarget and UnitIsFriend("player", "target")
+    local restorePossible = hadTarget
+
+    -- If we currently have a hostile target, clear it so Holy Shock can’t “auto-fire” as damage.
+    if hadTarget and UnitCanAttack("player", "target") then
+        ClearTarget()
+    end
+
+    -- Start the spell. If a valid unit isn’t targeted, the client will enter targeting-cursor mode.
+    CastSpellByName(spellName)
+
+    -- If we’re in targeting mode, explicitly land it on the friendly unit.
+    if SpellIsTargeting() then
+        SpellTargetUnit(unit)
+    end
+
+    -- If for any reason it’s STILL targeting (e.g., out of range), stop targeting so we don’t miscast next keypress.
+    if SpellIsTargeting() then
+        SpellStopTargeting()
+        return false
+    end
+
+    -- Restore previous target (friendly or hostile). If we cleared a hostile, TargetLastTarget() will bring it back.
+    if restorePossible then
+        TargetLastTarget()
+        -- Edge case: if last target was friendly and we just healed them, you’ll still be on them; optional:
+        if not UnitExists("target") and restoreToFriendly then
+            -- nothing to do; leaving this branch for clarity
+        end
+    end
+
+    return true
 end
 
 -- =========================================
@@ -162,49 +205,31 @@ function Ash_CastHolyStrike()
     return false
 end
 
+-- *** UPDATED to match theomode’s Holy Shock behavior ***
 function Ash_CastHolyShock()
-    local holyShockReady = IsSpellReady("Holy Shock")
-    if not holyShockReady then return false end
+    local ready = IsSpellReady("Holy Shock")
+    if not ready then return false end
 
-    local bestTarget = nil
-    local hasDaybreak = false
-    local lowestHP = 1
+    local bestTarget, lowestHP = nil, 1
     local units = { "player", "party1", "party2", "party3", "party4" }
     for i = 1, 40 do table.insert(units, "raid" .. i) end
 
     for _, unit in ipairs(units) do
         if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-            local hp = UnitHealth(unit)
-            local maxhp = UnitHealthMax(unit)
-            if maxhp > 0 then
-                local hpRatio = hp / maxhp
-                if hpRatio < 0.8 and IsSpellInRange("Holy Shock", unit) == 1 then
-                    local hasBuff = false
-                    for j = 1, 40 do
-                        local buff = UnitBuff(unit, j)
-                        if not buff then break end
-                        if string.find(buff, "Daybreak") then
-                            hasBuff = true
-                            break
-                        end
-                    end
-                    if hasBuff and (not hasDaybreak or hpRatio < lowestHP) then
-                        bestTarget = unit
-                        hasDaybreak = true
-                        lowestHP = hpRatio
-                    elseif not hasDaybreak and hpRatio < lowestHP then
-                        bestTarget = unit
-                        lowestHP = hpRatio
-                    end
+            local hp, maxhp = UnitHealth(unit), UnitHealthMax(unit)
+            if maxhp and maxhp > 0 then
+                local r = hp / maxhp
+                -- pick lowest health target in range
+                if r < lowestHP and IsSpellInRange("Holy Shock", unit) == 1 then
+                    lowestHP, bestTarget = r, unit
                 end
             end
         end
     end
 
-    if bestTarget then
-        CastSpellByName("Holy Shock")
-        SpellTargetUnit(bestTarget)
-        return true
+    -- cast only if target is below 80%
+    if bestTarget and lowestHP < 0.80 then
+        return CastOnFriendlyUnit("Holy Shock", bestTarget)
     end
     return false
 end
@@ -314,3 +339,4 @@ end
 
 SlashCmdList["ASHQH"] = AshQHHandler
 SLASH_ASHQH1 = "/ashqh"
+
