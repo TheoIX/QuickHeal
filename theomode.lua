@@ -1,4 +1,6 @@
--- theomode.lua
+-- TheoMode — Holy Paladin healer core (Turtle WoW 1.12)
+-- Hardened Holy Shock heal-only with no visible target swap; keeps enemy target for melee weave
+-- Date: 2025-08-21 (fix: nil Theo_CastHolyShock; repaired broken helper; removed stray return)
 
 local BOOKTYPE_SPELL = "spell"
 
@@ -18,7 +20,7 @@ local function IsSpellReady(spellName)
     return false, 0, 0
 end
 
--- Add this function at the top with your other utility functions
+-- Optional: bag scan (kept from your file)
 local function HasItemInBags(itemName)
     for bag = 0, 4 do
         for slot = 1, GetContainerNumSlots(bag) do
@@ -30,49 +32,6 @@ local function HasItemInBags(itemName)
     end
     return nil
 end
-
--- Force-cast a spell on a specific friendly unit without accidentally hitting hostiles
--- Safe, cursor-based heal cast that cannot hit enemies even if you’re spamming
-local function CastOnFriendlyUnit(spellName, unit)
-    if not UnitExists(unit) or not UnitIsFriend("player", unit) or UnitIsDeadOrGhost(unit) then
-        return false
-    end
-
-    local hadTarget = UnitExists("target")
-    local restoreToFriendly = hadTarget and UnitIsFriend("player", "target")
-    local restorePossible = hadTarget
-
-    -- If we currently have a hostile target, clear it so Holy Shock can’t “auto-fire” as damage.
-    if hadTarget and UnitCanAttack("player", "target") then
-        ClearTarget()
-    end
-
-    -- Start the spell. If a valid unit isn’t targeted, the client will enter targeting-cursor mode.
-    CastSpellByName(spellName)
-
-    -- If we’re in targeting mode, explicitly land it on the friendly unit.
-    if SpellIsTargeting() then
-        SpellTargetUnit(unit)
-    end
-
-    -- If for any reason it’s STILL targeting (e.g., out of range), stop targeting so we don’t miscast next keypress.
-    if SpellIsTargeting() then
-        SpellStopTargeting()
-        return false
-    end
-
-    -- Restore previous target (friendly or hostile). If we cleared a hostile, TargetLastTarget() will bring it back.
-    if restorePossible then
-        TargetLastTarget()
-        -- Edge case: if last target was friendly and we just healed them, you’ll still be on them; optional:
-        if not UnitExists("target") and restoreToFriendly then
-            -- nothing to do; leaving this branch for clarity
-        end
-    end
-
-    return true
-end
-
 
 local function GetSharedCooldown(spellNames)
     for i = 1, 300 do
@@ -92,9 +51,7 @@ local function HasSealOfWisdom()
     for i = 1, 40 do
         local buff = UnitBuff("player", i)
         if not buff then break end
-        if string.find(buff, "Seal of Wisdom") then
-            return true
-        end
+        if string.find(buff, "Seal of Wisdom") then return true end
     end
     return false
 end
@@ -103,29 +60,104 @@ local function QuickHeal_DetectBuff(unit, texture)
     for i = 1, 40 do
         local icon = UnitBuff(unit, i)
         if not icon then break end
-        if string.find(icon, texture) then
-            return true
-        end
+        if string.find(icon, texture) then return true end
     end
     return false
+end
+
+-- ============================================================
+-- Anti-auto-damage wrappers (no visible friendly swap)
+-- ============================================================
+-- For hybrid spells like Holy Shock: if you have a hostile target, auto-resolution can choose damage.
+-- This wrapper briefly clears hostile target (so there is NO target), casts on the chosen friendly via
+-- unit-aware helper or cursor, then restores your previous target. To the eye, it does not flicker.
+local function Theo_NoSwapCastOnUnit(spellName, unit)
+    if not UnitExists(unit) or not UnitIsFriend("player", unit) or UnitIsDeadOrGhost(unit) then
+        return false
+    end
+
+    local hadTarget = UnitExists("target")
+    local prevWasHostile = hadTarget and UnitCanAttack("player", "target")
+
+    -- Only clear if hostile; if your current target is friendly, we keep it
+    if prevWasHostile then ClearTarget() end
+
+    -- Try SuperWoW/Cleveroid direct unit casts
+    if type(CR_SpellOnUnit) == "function" then
+        local ok = CR_SpellOnUnit(spellName, unit)
+        if prevWasHostile and hadTarget then TargetLastTarget() end
+        if ok then return true end
+    end
+    if type(CR_CastSpellOnUnit) == "function" then
+        local ok = CR_CastSpellOnUnit(spellName, unit)
+        if prevWasHostile and hadTarget then TargetLastTarget() end
+        if ok then return true end
+    end
+    if type(CastSpellByNameEx) == "function" then
+        local ok = CastSpellByNameEx(spellName, unit)
+        if prevWasHostile and hadTarget then TargetLastTarget() end
+        if ok then return true end
+    end
+
+    -- Cursor resolve path
+    CastSpellByName(spellName)
+    if SpellIsTargeting() then
+        SpellTargetUnit(unit)
+        if prevWasHostile and hadTarget then TargetLastTarget() end
+        return true
+    end
+
+    -- Hardened fallback (momentary friendly target then restore)
+    local had = UnitExists("target")
+    local hostile = had and UnitCanAttack("player", "target")
+    if hostile then ClearTarget() end
+    TargetUnit(unit)
+    CastSpellByName(spellName)
+    if SpellIsTargeting() then SpellTargetUnit(unit) end
+    if SpellIsTargeting() then
+        SpellStopTargeting()
+        if had then TargetLastTarget() end
+        return false
+    end
+    if had then TargetLastTarget() else ClearTarget() end
+    return true
+end
+
+-- Legacy hardened helper (kept for clarity where used directly)
+local function Theo_SafeCastOnFriendlyUnit(spellName, unit)
+    if not UnitExists(unit) or not UnitIsFriend("player", unit) or UnitIsDeadOrGhost(unit) then
+        return false
+    end
+    local hadTarget = UnitExists("target")
+    local hostileBefore = hadTarget and UnitCanAttack("player", "target")
+    if hostileBefore then ClearTarget() end
+    TargetUnit(unit)
+    CastSpellByName(spellName)
+    if SpellIsTargeting() then SpellTargetUnit(unit) end
+    if SpellIsTargeting() then
+        SpellStopTargeting()
+        if hadTarget then TargetLastTarget() end
+        return false
+    end
+    if hadTarget then TargetLastTarget() else ClearTarget() end
+    return true
 end
 
 -- =========================================
 -- Globals & Toggles
 -- =========================================
+QuickHeal_EnableMouseoverFL7 = QuickHeal_EnableMouseoverFL7 or false
+Theo_EnableUtilities = Theo_EnableUtilities or false
+Theo_LastPerception = Theo_LastPerception or 0
+Theo_LastWarmth = Theo_LastWarmth or 0
+Theo_LastEye = Theo_LastEye or 0
 
-QuickHeal_EnableMouseoverFL7 = false
-Theo_EnableUtilities = false
-Theo_LastPerception = 0
-Theo_LastWarmth = 0
-Theo_LastEye = 0
-
-QuickHeal_EnableTheomode = false
+QuickHeal_EnableTheomode = QuickHeal_EnableTheomode or false
 local TheoMode_LastHealedTarget = nil
-local QuickTheo_SealTime = 0
-local QuickTheo_LastSealCast = nil
-local QuickTheo_WaitingForJudgement = false
-local Theo_LastHolyLightTime = 0
+local QuickTheo_SealTime = QuickTheo_SealTime or 0
+local QuickTheo_LastSealCast = QuickTheo_LastSealCast
+local QuickTheo_WaitingForJudgement = QuickTheo_WaitingForJudgement or false
+local Theo_LastHolyLightTime = Theo_LastHolyLightTime or 0
 
 -- =========================================
 -- Core TheoMode Logic
@@ -256,32 +288,31 @@ function Theo_CastHolyStrike()
     return false
 end
 
+-- New Holy Shock with no-swap cast + guaranteed heal
 function Theo_CastHolyShock()
     local ready = IsSpellReady("Holy Shock")
     if not ready then return false end
 
-    local bestTarget, lowestHP = nil, 1
-    local units = { "player", "party1", "party2", "party3", "party4" }
-    for i = 1, 40 do table.insert(units, "raid" .. i) end
+    -- evaluate lowest <70% in range
+    local best, bestR = nil, 1
+    local units = {"player", "party1", "party2", "party3", "party4"}
+    for i = 1, 40 do table.insert(units, "raid"..i) end
 
-    for _, unit in ipairs(units) do
-        if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-            local hp, maxhp = UnitHealth(unit), UnitHealthMax(unit)
+    for _, u in ipairs(units) do
+        if UnitExists(u) and UnitIsFriend("player", u) and not UnitIsDeadOrGhost(u) then
+            local hp, maxhp = UnitHealth(u), UnitHealthMax(u)
             if maxhp and maxhp > 0 then
                 local r = hp / maxhp
-                -- pick lowest health target in range
-                if r < lowestHP and IsSpellInRange("Holy Shock", unit) == 1 then
-                    lowestHP, bestTarget = r, unit
+                if r < bestR and r < 0.70 and IsSpellInRange("Holy Shock", u) == 1 then
+                    best, bestR = u, r
                 end
             end
         end
     end
 
-    -- cast only if target is below 80%
-    if bestTarget and lowestHP < 0.80 then
-        return CastOnFriendlyUnit("Holy Shock", bestTarget)
-    end
-    return false
+    if not best then return false end
+
+    return Theo_NoSwapCastOnUnit("Holy Shock", best)
 end
 
 function Theo_CastHolyLight()
@@ -325,36 +356,28 @@ end
 -- Logic Hooking
 -- =========================================
 
--- /theoqh: TheoMode spells → fallback to QuickHeal()
 local function TheoQHHandler()
-
-if QuickHeal_EnableMouseoverFL7 then
-    local focus = GetMouseFocus()
-    local unit = focus and focus.unit
-
-    if unit and UnitExists(unit)
-    and UnitIsFriend("player", unit)
-    and not UnitIsDeadOrGhost(unit)
-    and IsSpellInRange("Flash of Light(Rank 7)", unit) == 1
-    and IsSpellReady("Flash of Light") then
-        CastSpellByName("Flash of Light(Rank 7)")
-        SpellTargetUnit(unit)
-        return
+    if QuickHeal_EnableMouseoverFL7 then
+        local focus = GetMouseFocus()
+        local unit = focus and focus.unit
+        if unit and UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit)
+           and IsSpellInRange("Flash of Light(Rank 7)", unit) == 1 and IsSpellReady("Flash of Light") then
+            CastSpellByName("Flash of Light(Rank 7)")
+            SpellTargetUnit(unit)
+            return
+        end
     end
-end
 
     if QuickHeal_EnableTheomode then
-        local casted = Theo_CastHolyStrike()
-casted = Theo_CastHolyShock()  or casted
-casted = Theo_CastHolyLight()  or casted
-        if not casted then
-            QuickHeal()
-        end
+        -- healer-first ordering
+        if Theo_CastHolyShock() then return end
+        if Theo_CastHolyLight() then return end
+        if Theo_CastHolyStrike() then return end
+        QuickHeal()
     else
         QuickHeal()
     end
 end
-
 
 -- =========================================
 -- Slash Commands
@@ -392,4 +415,3 @@ end
 
 SlashCmdList["THEOQH"] = TheoQHHandler
 SLASH_THEOQH1 = "/theoqh"
-
