@@ -96,16 +96,24 @@ local function IsSpellReady(spellName)
     return false
 end
 
--- helper: cast Holy Shock on yourself if <70% HP
 local function Theo_CastHolyShockSelf()
     local hpPct = (UnitHealth("player") / UnitHealthMax("player")) * 100
-    if IsSpellReady("Holy Shock") and hpPct < 70 then
-        CastSpellByName("Holy Shock")
-        SpellTargetUnit("player")
+    if not IsSpellReady("Holy Shock") or hpPct >= 70 then return false end
+
+    -- Try API self-cast first
+    CastSpellByName("Holy Shock", 1)
+    if SpellIsTargeting() then SpellTargetUnit("player"); return true end
+
+    -- Fallback: self-cast via UseAction on a fixed slot (forces friendly variant)
+    if HOLY_SHOCK_ACTION_SLOT then
+        UseAction(HOLY_SHOCK_ACTION_SLOT, 0, 1)  -- onSelf = 1
+        if SpellIsTargeting() then SpellTargetUnit("player") end
         return true
     end
-    return false
+
+    return true
 end
+
 
 -- Cast Exorcism on demons or undead if ready
 local function Theo_CastExorcism()
