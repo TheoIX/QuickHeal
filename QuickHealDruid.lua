@@ -133,7 +133,7 @@ function QuickHeal_Druid_FindHealSpellToUse(Target, healType, multiplier, forceM
     -- Detect Nature's Swiftness (next nature spell is instant cast)
     if QuickHeal_DetectBuff('player',"Spell_Nature_RavenForm") then
         debug("BUFF: Nature's Swiftness (out of combat healing forced)");
-        ForceHTinCombat = true;
+        ForceHTinCombat = false;
     end
 
     -- Detect proc of 'Hand of Edward the Odd' mace (next spell is instant cast)
@@ -147,7 +147,7 @@ function QuickHeal_Druid_FindHealSpellToUse(Target, healType, multiplier, forceM
     -- Detect Wushoolay's Charm of Nature (Trinket from Zul'Gurub, Madness event)
     if QuickHeal_DetectBuff('player',"Spell_Nature_Regenerate") then
         debug("BUFF: Nature's Swiftness (out of combat healing forced)");
-        ForceHTinCombat = true;
+        ForceHTinCombat = false;
     end
 
     -- Detect Nature's Grace (next nature spell is hasted by 0.5 seconds)
@@ -335,7 +335,7 @@ function QuickHeal_Druid_FindHealSpellToUseNoTarget(maxhealth, healDeficit, heal
     -- Detect Nature's Swiftness (next nature spell is instant cast)
     if QuickHeal_DetectBuff('player',"Spell_Nature_RavenForm") then
         debug("BUFF: Nature's Swiftness (out of combat healing forced)");
-        ForceHTinCombat = true;
+        ForceHTinCombat = false;
     end
 
     -- Detect proc of 'Hand of Edward the Odd' mace (next spell is instant cast)
@@ -895,3 +895,4 @@ function QuickHeal_Command_Druid(msg)
 
     writeLine("/qh reset - Reset configuration to default parameters for all classes.");
 end
+
