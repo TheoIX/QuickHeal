@@ -56,6 +56,34 @@ local function TheoProt_HasBuff(buffName)
     return false
 end
 
+-- Generic tooltip-based scanners
+local function UnitHasBuffByName(unit, namePart)
+  for i = 1, 40 do
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    GameTooltip:SetUnitBuff(unit, i)
+    local t = GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
+    if t and strfind(t, namePart) then return true end
+  end
+  return false
+end
+
+local function UnitHasDebuffByName(unit, namePart)
+  for i = 1, 16 do
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    GameTooltip:SetUnitDebuff(unit, i)
+    local t = GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
+    if t and strfind(t, namePart) then return true end
+  end
+  return false
+end
+
+-- Your specific gate: skip Judgement if SoW on player AND JoW on target
+local function ShouldSkipJudgementForWisdom()
+  return UnitHasBuffByName("player", "Seal of Wisdom")
+     and UnitHasDebuffByName("target", "Judgement of Wisdom")
+end
+
+
 -- Helper: equip a libram by name using UseContainerItem (WoW 1.12)
 local function EquipLibram(itemName)
     local equipped = GetInventoryItemLink("player", 16)
@@ -243,6 +271,7 @@ end
 
 -- Cast Judgement if ready and in range
 local function Theo_CastJudgement()
+  if ShouldSkipJudgementForWisdom() then return false end
     if IsSpellReady("Judgement")
        and UnitExists("target") and UnitCanAttack("player","target")
        and not UnitIsDeadOrGhost("target")
