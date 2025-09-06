@@ -10,7 +10,7 @@ local BOOKTYPE_SPELL = "spell"
 
 -- State: track whether Judgement casting is enabled (hysteresis)
 local judgementEnabled = true
-
+local protShockMode = false
 -- Mode toggles: Main Tank and Off Tank
 local trinketMode = false
 local mainTankMode = false
@@ -287,7 +287,29 @@ local function Theo_CastJudgement()
     end
     return false
 end
- 
+
+ local function TheoProt_CastHolyShockSmart()
+    if not IsSpellReady("Holy Shock") then return false end
+
+    local hp, maxhp = UnitHealth("player"), UnitHealthMax("player")
+    local hpct = (maxhp and maxhp > 0) and (hp / maxhp) or 1
+
+    if hpct < 0.50 then
+        -- Heal yourself without changing target
+        CastSpellByName("Holy Shock")
+        if SpellIsTargeting() then SpellTargetUnit("player") end
+        return true
+    else
+        -- Damage current target if valid and in range
+        if not (UnitExists("target") and UnitCanAttack("player","target") and not UnitIsDeadOrGhost("target")) then
+            return false
+        end
+        if IsSpellInRange("Holy Shock", "target") ~= 1 then return false end
+        CastSpellByName("Holy Shock")
+        return true
+    end
+end
+
 function QuickTheoProt()
     RunScript('UnitXP("target", "nearestEnemy")')
    
@@ -305,7 +327,23 @@ function QuickTheoProt()
         end
     end
 
-  
+  if protShockMode then
+    local targetHPpct = (UnitHealth("target") / UnitHealthMax("target")) * 100
+
+    -- #1: Execute
+    if targetHPpct <= 20 and Theo_CastHammerOfWrath() then return end
+
+    -- Standard MT core with Holy Shock injected
+    if Theo_CastHolyStrike() then return end
+    if Theo_CastHolyShield() then return end
+    if TheoProt_CastHolyShockSmart() then return end
+    if Theo_CastSealOfRighteousness() then return end
+    if Theo_CastJudgement() then return end
+    if Theo_CastConsecration() then return end
+
+    return
+end
+
     if mainTankMode then
         local targetHPpct = (UnitHealth("target") / UnitHealthMax("target")) * 100
 
@@ -448,6 +486,12 @@ SlashCmdList["OFFTANKMODE"] = function()
     else
         DEFAULT_CHAT_FRAME:AddMessage("Off Tank Mode DISABLED", 1, 0, 0)
     end
+end
+
+SLASH_PROTSHOCK1 = "/protshock"
+SlashCmdList["PROTSHOCK"] = function()
+    protShockMode = not protShockMode
+    DEFAULT_CHAT_FRAME:AddMessage("ProtShock " .. (protShockMode and "ENABLED" or "DISABLED"), 0, 1, 1)
 end
 
 -- add the FarmMode slash-command toggle
