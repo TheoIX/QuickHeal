@@ -77,6 +77,20 @@ local function UnitHasDebuffByName(unit, namePart)
   return false
 end
 
+-- Texture-based debuff check on the target (Vanilla returns texture path from UnitDebuff)
+local function TheoProt_TargetHasDebuffTexture(texSubstr)
+    if not UnitExists("target") then return false end
+    local needle = string.lower(texSubstr or "")
+    for i = 1, 16 do
+        local tex = UnitDebuff("target", i)
+        if not tex then break end
+        if needle ~= "" and string.find(string.lower(tex), needle, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
 -- Your specific gate: skip Judgement if SoW on player AND JoW on target
 local function ShouldSkipJudgementForWisdom()
   return UnitHasBuffByName("player", "Seal of Wisdom")
@@ -271,6 +285,16 @@ end
 
 -- Cast Judgement if ready and in range
 local function Theo_CastJudgement()
+-- FarmMode: skip Judgement if JoW already on target
+if farmMode then
+    local hasJoW = UnitHasDebuffByName("target", "Judgement of Wisdom")
+               or TheoProt_TargetHasDebuffTexture("spell_holy_righteousnessaura")  -- common JoW icon
+               -- If your server uses a different JoW icon, try: "spell_holy_sealofwisdom"
+    if hasJoW then
+        return false
+    end
+end
+
   if ShouldSkipJudgementForWisdom() then return false end
     if IsSpellReady("Judgement")
        and UnitExists("target") and UnitCanAttack("player","target")
