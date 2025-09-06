@@ -2,6 +2,7 @@
 QuickTheo_LionheartMode = false
 QuickTheo_UseSealOfRighteousness = false
 QuickTheo_UseWisdomFallback = false
+QuickTheo_UseHolyShock = false
 QuickTheo_UseConsecration = false
 QuickTheo_HolyMightExpireTime = 0
 QuickTheo_ZealMode = false
@@ -141,6 +142,27 @@ local function TheoDPS_CastJudgement()
     return false
 end
 
+local function TheoDPS_CastHolyShock()
+    if not QuickTheo_UseHolyShock then return false end
+    if not IsSpellReady("Holy Shock") then return false end
+
+    local hp, maxhp = UnitHealth("player"), UnitHealthMax("player")
+    local hpct = (maxhp and maxhp > 0) and (hp / maxhp) or 1
+
+    if hpct < 0.50 then
+        -- Heal yourself without changing target
+        CastSpellByName("Holy Shock")
+        SpellTargetUnit("player")
+        return true
+    else
+        -- Damage your current target if valid and in range
+        if not TheoDPS_IsTargetValid() then return false end
+        if IsSpellInRange("Holy Shock", "target") ~= 1 then return false end
+        CastSpellByName("Holy Shock")
+        return true
+    end
+end
+
 local function TheoDPS_CastExorcism()
     TheoDPS_TargetEnemyIfNeeded()
     if not TheoDPS_IsTargetValid() then return false end
@@ -187,9 +209,16 @@ local function TheoDPS_CastConsecration()
     local maxMana = UnitManaMax("player")
     local manaPercent = (maxMana > 0) and (mana / maxMana) or 0
 
-    if manaPercent > 0.75 and IsSpellReady("Consecration") then
-        CastSpellByName("Consecration")
-        return true
+    if IsSpellReady("Consecration") then
+        if manaPercent <= 0.50 then
+            -- Use Rank 1 when conserving mana
+            CastSpellByName("Consecration(Rank 1)")
+            return true
+        else
+            -- Use highest rank when healthy on mana
+            CastSpellByName("Consecration")
+            return true
+        end
     end
     return false
 end
@@ -232,6 +261,7 @@ local function QuickTheoDPS_RunLogic()
     if TheoDPS_CastStrike() then return end
     if TheoDPS_CastAppropriateSeal() then return end
     if TheoDPS_CastJudgement() then return end
+    if TheoDPS_CastHolyShock() then return end
     if TheoDPS_CastExorcism() then return end
     if TheoDPS_CastHammerOfWrath() then return end
     if TheoDPS_CastRepentance() then return end
@@ -269,6 +299,13 @@ local function InitQuickTheoDPS()
     SlashCmdList["QHZEAL"] = QuickTheo_ToggleZealMode
     SLASH_QHLIONHEART1 = "/lionheart"
     SlashCmdList["QHLIONHEART"] = QuickTheo_ToggleLionheartMode
+end
+
+SLASH_SHOCKADIN1 = "/shockadin"
+SlashCmdList["SHOCKADIN"] = function()
+    QuickTheo_UseHolyShock = not QuickTheo_UseHolyShock
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Holy Shock: " ..
+        (QuickTheo_UseHolyShock and "ON" or "OFF"))
 end
 
 -- 2) Register its own slash (won’t collide with other addons)
