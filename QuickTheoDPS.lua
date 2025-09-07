@@ -1,5 +1,6 @@
 -- QuickTheoDPS: Retribution Paladin DPS macro for Turtle WoW (1.12)
 QuickTheo_LionheartMode = false
+QuickTheo_EnsureCrusader = false
 QuickTheo_UseSealOfRighteousness = false
 QuickTheo_UseWisdomFallback = false
 QuickTheo_UseHolyShock = false
@@ -41,6 +42,33 @@ local function TheoDPS_HasBuff(buffName)
         GameTooltip:SetUnitBuff("player", i)
         local text = GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
         if text and string.find(text, buffName) then
+            return true
+        end
+    end
+    return false
+end
+
+local function TheoDPS_TargetHasDebuffTexture(texSubstr)
+    if not UnitExists("target") then return false end
+    local needle = string.lower(texSubstr or "")
+    for i = 1, 16 do
+        local texture = UnitDebuff("target", i)
+        if not texture then break end
+        if needle ~= "" and string.find(string.lower(texture), needle, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function TheoDPS_TargetHasDebuffByName(nameSubstr)
+    if not UnitExists("target") then return false end
+    local needle = string.lower(nameSubstr or "")
+    for i = 1, 16 do
+        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+        GameTooltip:SetUnitDebuff("target", i)
+        local txt = GameTooltipTextLeft1 and GameTooltipTextLeft1:GetText()
+        if txt and string.find(string.lower(txt), needle, 1, true) then
             return true
         end
     end
@@ -107,6 +135,44 @@ if QuickTheo_LionheartMode then
         return true
     end
 
+    return false
+end
+
+local function TheoDPS_EnsurePreferredJudgement()
+    if not TheoDPS_IsTargetValid() then return false end
+    if IsSpellInRange("Judgement", "target") ~= 1 then return false end
+
+    local wantCrusader = QuickTheo_EnsureCrusader
+
+    if wantCrusader then
+        -- Detect JotC via texture + name fallback
+        local hasJotC = TheoDPS_TargetHasDebuffTexture("spell_holy_holysmite")
+                     or TheoDPS_TargetHasDebuffByName("judgement of the crusader")
+        if hasJotC then return false end
+
+        -- Prep Crusader seal, then Judge
+        if not TheoDPS_HasBuff("Seal of the Crusader") and IsSpellReady("Seal of the Crusader") then
+            CastSpellByName("Seal of the Crusader")
+            return true
+        end
+    else
+        -- Detect JoW via texture(s) + name fallback
+        local hasJoW = TheoDPS_TargetHasDebuffTexture("spell_holy_righteousnessaura")
+                    or TheoDPS_TargetHasDebuffTexture("spell_holy_sealofwisdom")
+                    or TheoDPS_TargetHasDebuffByName("judgement of wisdom")
+        if hasJoW then return false end
+
+        -- Prep Wisdom seal, then Judge
+        if not TheoDPS_HasBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
+            CastSpellByName("Seal of Wisdom")
+            return true
+        end
+    end
+
+    if IsSpellReady("Judgement") then
+        CastSpellByName("Judgement")
+        return true
+    end
     return false
 end
 
@@ -257,7 +323,7 @@ local function QuickTheoDPS_RunLogic()
 
 
     TheoDPS_TargetEnemyIfNeeded()
-
+    if TheoDPS_EnsurePreferredJudgement() then return end
     if TheoDPS_CastStrike() then return end
     if TheoDPS_CastAppropriateSeal() then return end
     if TheoDPS_CastJudgement() then return end
@@ -306,6 +372,13 @@ SlashCmdList["SHOCKADIN"] = function()
     QuickTheo_UseHolyShock = not QuickTheo_UseHolyShock
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Holy Shock: " ..
         (QuickTheo_UseHolyShock and "ON" or "OFF"))
+end
+
+SLASH_ENSUREJ1 = "/ensurecrusader"
+SlashCmdList["ENSUREJ"] = function()
+    QuickTheo_EnsureCrusader = not QuickTheo_EnsureCrusader
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheo] Ensure Judgement: "
+        .. (QuickTheo_EnsureCrusader and "Crusader" or "Wisdom"))
 end
 
 -- 2) Register its own slash (won’t collide with other addons)
