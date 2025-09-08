@@ -11,6 +11,7 @@ local BOOKTYPE_SPELL = "spell"
 -- State: track whether Judgement casting is enabled (hysteresis)
 local judgementEnabled = true
 local protShockMode = false
+local QuickTheoProt_EnsureCrusader = false
 -- Mode toggles: Main Tank and Off Tank
 local trinketMode = false
 local mainTankMode = false
@@ -285,6 +286,12 @@ end
 
 -- Cast Judgement if ready and in range
 local function Theo_CastJudgement()
+    if QuickTheoProt_EnsureCrusader then
+        local jotcUp = TheoProt_TargetHasDebuffTexture("spell_holy_holysmite")
+                    or UnitHasDebuffByName("target", "judgement of the crusader")
+        if jotcUp then return false end
+    end
+
 -- FarmMode: skip Judgement if JoW already on target
 if farmMode then
     local hasJoW = UnitHasDebuffByName("target", "Judgement of Wisdom")
@@ -306,6 +313,46 @@ end
        and not TheoProt_TargetHasDebuff("Judgement of Wisdom")
        and not TheoProt_TargetHasDebuff("Judgement of Light")
     then
+        CastSpellByName("Judgement")
+        return true
+    end
+    return false
+end
+
+-- Ensure the preferred Judgement is up: Crusader (when ON) or Wisdom (when OFF)
+local function TheoProt_EnsurePreferredJudgement()
+    -- must have a valid enemy target in Judgement range
+    if not (UnitExists("target") and UnitCanAttack("player","target") and not UnitIsDeadOrGhost("target")) then
+        return false
+    end
+    if IsSpellInRange("Judgement", "target") ~= 1 then return false end
+
+    if QuickTheoProt_EnsureCrusader then
+        -- Detect JotC (texture + name fallback)
+        local hasJotC = TheoProt_TargetHasDebuffTexture("spell_holy_holysmite")
+                     or UnitHasDebuffByName("target", "judgement of the crusader")
+        if hasJotC then return false end
+
+        -- Prep Seal of the Crusader, then Judge
+        if not TheoProt_HasBuff("Seal of the Crusader") and IsSpellReady("Seal of the Crusader") then
+            CastSpellByName("Seal of the Crusader")
+            return true
+        end
+    else
+        -- Detect JoW (two common textures + name fallback)
+        local hasJoW = TheoProt_TargetHasDebuffTexture("spell_holy_righteousnessaura")
+                    or TheoProt_TargetHasDebuffTexture("spell_holy_sealofwisdom")
+                    or UnitHasDebuffByName("target", "judgement of wisdom")
+        if hasJoW then return false end
+
+        -- Prep Seal of Wisdom, then Judge
+        if not TheoProt_HasBuff("Seal of Wisdom") and IsSpellReady("Seal of Wisdom") then
+            CastSpellByName("Seal of Wisdom")
+            return true
+        end
+    end
+
+    if IsSpellReady("Judgement") then
         CastSpellByName("Judgement")
         return true
     end
@@ -446,6 +493,7 @@ end
 
 
     -- Standard Behavior (Only runs if both MT and OT are disabled)
+    local targetHPpct = (UnitHealth("target") / UnitHealthMax("target")) * 100
     local currentMana = UnitMana("player")
     local maxMana = UnitManaMax("player")
     local manaPct = (currentMana / maxMana) * 100
@@ -455,7 +503,12 @@ end
     elseif manaPct > 75 then
         judgementEnabled = true
     end
-
+        -- #1: Execute
+    if targetHPpct <= 20 and Theo_CastHammerOfWrath() then return end
+    if TheoProt_EnsurePreferredJudgement() then return end
+    if Theo_CastHolyStrike() then return end
+    if Theo_CastHolyShield() then return end
+    if Theo_CastConsecration() then return end
     if judgementEnabled then
         if Theo_CastSealOfRighteousness() then return end
         if Theo_CastJudgement() then return end
@@ -463,10 +516,8 @@ end
         if Theo_CastSealOfWisdom() then return end
     end
 
+    if TheoProt_CastHolyShockSmart() then return end
     if Theo_CastExorcism() then return end
-    if Theo_CastHolyStrike() then return end
-    if Theo_CastConsecration() then return end
-    if Theo_CastHolyShield() then return end
 end
 
 
@@ -542,3 +593,13 @@ SlashCmdList["TRINKETMODE"] = function()
         DEFAULT_CHAT_FRAME:AddMessage("Trinket Mode DISABLED", 1, 0, 0)
     end
 end
+
+-- /projudge : toggle preferred Judgement (Crusader vs Wisdom) for Prot
+SLASH_PROJUDGE1 = "/projudge"
+SlashCmdList["PROJUDGE"] = function()
+    QuickTheoProt_EnsureCrusader = not QuickTheoProt_EnsureCrusader
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheoProt] Ensure Judgement: "
+        .. (QuickTheoProt_EnsureCrusader and "Crusader" or "Wisdom"))
+end
+
+
