@@ -12,7 +12,8 @@ local QuickTheo_SealTime = 0
 local QuickTheo_LastHolyLightCastTime = 0
 local QuickTheo_LastSealCast = nil
 local QuickTheo_LastHealedTarget = nil
-
+Theo_LastHSUnit = Theo_LastHSUnit or nil
+Theo_LastHSUnitName = Theo_LastHSUnitName or nil
 local function HasSealOfWisdom()
     for i = 1, 40 do
         local buff = UnitBuff("player", i)
@@ -109,6 +110,59 @@ local function Theo_CastHolyStrike()
     UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
     return false
 end
+
+-- (Optional once) globals used for chat feedback
+Theo_LastHSUnit = Theo_LastHSUnit or nil
+Theo_LastHSUnitName = Theo_LastHSUnitName or nil
+
+-- Cast Holy Shock on the lowest % HP friendly in range, no threshold
+function Theshocker()
+    if not IsSpellInRange or not CastSpellByName then return false end
+
+    -- Build friendly scan list (deduped). Always include yourself.
+    local units, seen = {}, {}
+    local function push(u)
+        if u and not seen[u] and UnitExists(u) then
+            table.insert(units, u); seen[u] = true
+        end
+    end
+
+    push("player")
+    if UnitExists("mouseover") and UnitIsFriend("player","mouseover") and not UnitIsDeadOrGhost("mouseover") then push("mouseover") end
+    if UnitExists("target")   and UnitIsFriend("player","target")   and not UnitIsDeadOrGhost("target")   then push("target")   end
+    for i=1,4  do push("party"..i) end
+    for i=1,40 do push("raid"..i)  end
+
+    -- Pick lowest health fraction in Holy Shock range
+    local bestU, bestFrac
+    for _,u in ipairs(units) do
+        if not UnitIsDeadOrGhost(u) and IsSpellInRange("Holy Shock", u) == 1 then
+            local hp, mhp = UnitHealth(u), UnitHealthMax(u)
+            if mhp and mhp > 0 then
+                local f = hp / mhp
+                if not bestFrac or f < bestFrac then bestFrac, bestU = f, u end
+            end
+        end
+    end
+    bestU = bestU or "player" -- fallback
+
+    -- Remember who we healed (for macro feedback)
+    Theo_LastHSUnit, Theo_LastHSUnitName = bestU, UnitName(bestU)
+
+    -- Prefer your no-swap helper if present; else safe targeting inline
+    if Theo_NoSwapCastOnUnit then
+        return Theo_NoSwapCastOnUnit("Holy Shock", bestU)
+    else
+        local had = UnitExists("target")
+        local hostile = had and UnitCanAttack("player","target")
+        if hostile then ClearTarget() end
+        CastSpellByName("Holy Shock")
+        if SpellIsTargeting() then SpellTargetUnit(bestU) end
+        if hostile and had then TargetLastTarget() end
+        return true
+    end
+end
+
 
 local function Theo_GetLowestHPTarget()
     local bestUnit, lowestHP = nil, 1
