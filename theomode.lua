@@ -166,7 +166,7 @@ local function IsCrusaderStrikeConditionMet()
   local ready, start, duration = IsSpellReady("Holy Shock")
   local remaining = 0
   if not ready then remaining = duration - (GetTime() - start) end
-  return (not hasInjuredNearby) and remaining > 15
+  return (not hasInjuredNearby) and remaining > 8
 end
 
 local function Theo_UseUtilities()
@@ -392,4 +392,5 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
+
 
