@@ -173,8 +173,8 @@ local function Theo_UseUtilities()
     if not Theo_EnableUtilities then return end
     local now = GetTime()
 
-    -- Perception Logic
-    if now - Theo_LastPerception > 180 then
+    -- Perception Logic (combat only)
+    if UnitAffectingCombat("player") and (now - Theo_LastPerception > 180) then
         if IsSpellReady("Perception") then
             CastSpellByName("Perception")
             Theo_LastPerception = now
@@ -184,12 +184,15 @@ local function Theo_UseUtilities()
     for slot = 13, 14 do
         local item = GetInventoryItemLink("player", slot)
         if item then
+            -- Use Warmth of Forgiveness if mana below 85%
             if string.find(item, "Warmth of Forgiveness") and (mana / maxMana) < 0.85 then
                 local start, duration, enable = GetInventoryItemCooldown("player", slot)
                 if enable == 1 and (start == 0 or duration == 0) then
                     UseInventoryItem(slot)
                 end
             end
+
+            -- Use Eye of the Dead if 5+ raid members below 80% HP
             if string.find(item, "Eye of the Dead") then
                 local injuredCount = 0
                 for i = 1, 40 do
@@ -209,9 +212,19 @@ local function Theo_UseUtilities()
                     end
                 end
             end
+
+            -- Use Eye of Diminution if in combat
+            if string.find(item, "Eye of Diminution") and UnitAffectingCombat("player") then
+                local start, duration, enable = GetInventoryItemCooldown("player", slot)
+                if enable == 1 and (start == 0 or duration == 0) then
+                    UseInventoryItem(slot)
+                end
+            end
         end
     end
 end
+
+
 
 -- =========================================
 -- SPELLS
@@ -392,5 +405,4 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
-
 
