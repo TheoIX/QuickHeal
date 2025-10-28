@@ -146,6 +146,97 @@ end
 Theo_SetErrorSuppression(Theo_SuppressUIErrors)
 
 -- =========================================
+-- BLACKLIST (LoS/Range) + Spy Hooks
+-- =========================================
+Theo_EnableBlacklist = (Theo_EnableBlacklist ~= false) -- default ON
+local Theo_Blacklist = {}
+local Theo_LastCastTargetName = nil
+
+local function Theo_BlacklistIsActive(name)
+  if not name then return false end
+  local until_t = Theo_Blacklist[name]
+  if not until_t then return false end
+  local now = GetTime and GetTime() or 0
+  if now < until_t then return true end
+  Theo_Blacklist[name] = nil
+  return false
+end
+
+local function Theo_BlacklistAdd(name, seconds, reason)
+  if not name or name == "" then return end
+  local now = GetTime and GetTime() or 0
+  Theo_Blacklist[name] = now + (seconds or 2.0)
+
+  -- silence chat for the "(busy)" entries only
+  if reason == "busy" then return end
+
+  if DEFAULT_CHAT_FRAME then
+    DEFAULT_CHAT_FRAME:AddMessage(
+      string.format('Theo: blacklisted "%s" for %.1fs%s',
+        name, seconds or 2.0, reason and (" ("..reason..")") or ""),
+      1, 0.5, 0
+    )
+  end
+end
+
+
+-- Paladin-friendly range probe
+local function Theo_IsUnitInHealRange(unit)
+  -- Prefer a short heal for probe (exists on all Holy specs)
+  local r = IsSpellInRange("Flash of Light", unit)
+  if r == 1 then return true end
+  -- Fallback to Holy Light if needed
+  r = IsSpellInRange("Holy Light", unit)
+  return r == 1
+end
+
+-- Spy/wrap SpellTargetUnit so we always know the friendly unit QuickHeal (or us) tried to heal
+if not Theo_Orig_SpellTargetUnit then
+  Theo_Orig_SpellTargetUnit = SpellTargetUnit
+  SpellTargetUnit = function(unit)
+    local name = UnitName and UnitName(unit) or nil
+    -- If blacklist is enabled and this name is blacklisted, cancel targeting instead of feeding it
+    if Theo_EnableBlacklist and name and Theo_BlacklistIsActive(name) then
+      if SpellIsTargeting and SpellIsTargeting() then SpellStopTargeting() end
+      if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("Theo: skipped blacklisted target "..name, 1, 0.5, 0)
+      end
+      return -- do NOT call the original; we just decline this target
+    end
+    -- Record last friendly intended heal target (used by the error listener)
+    if name and UnitIsFriend("player", unit) then
+      Theo_LastCastTargetName = name
+    end
+    return Theo_Orig_SpellTargetUnit(unit)
+  end
+end
+
+-- Error listener: translate UI errors into short blacklist entries
+local theo_errf = CreateFrame("Frame")
+theo_errf:RegisterEvent("UI_ERROR_MESSAGE")
+theo_errf:SetScript("OnEvent", function()
+  if not Theo_EnableBlacklist then return end
+  local msg = arg1
+  if not msg or msg == "" then return end
+  local name = Theo_LastCastTargetName
+  if not name or name == "" then return end
+
+  local lower = string.lower(msg)
+  if string.find(lower, "line of sight") or string.find(lower, "line of site") or string.find(lower, "los") then
+    Theo_BlacklistAdd(name, 2.0, "LoS")
+    return
+  end
+  if string.find(lower, "out of range") or string.find(lower, "too far away") or string.find(lower, "range") then
+    Theo_BlacklistAdd(name, 5.0, "range")
+    return
+  end
+  if string.find(lower, "another action") or string.find(lower, "can't do that") or string.find(lower, "can’t do that") then
+    Theo_BlacklistAdd(name, 0.7, "busy")
+    return
+  end
+end)
+
+-- =========================================
 -- ROTATION HELPERS
 -- =========================================
 local function IsCrusaderStrikeConditionMet()
@@ -295,17 +386,22 @@ function Theo_CastHolyShock()
   local units = {"player", "party1", "party2", "party3", "party4"}
   for i = 1, 40 do table.insert(units, "raid"..i) end
 
-  for _, u in ipairs(units) do
+    for _, u in ipairs(units) do
     if UnitExists(u) and UnitIsFriend("player", u) and not UnitIsDeadOrGhost(u) then
-      local hp, maxhp = UnitHealth(u), UnitHealthMax(u)
-      if maxhp and maxhp > 0 then
-        local r = hp / maxhp
-        if r < bestR and r < 0.70 and IsSpellInRange("Holy Shock", u) == 1 then
-          best, bestR = u, r
+      local nameU = UnitName(u)
+      -- SKIP if blacklisted
+      if not (Theo_EnableBlacklist and Theo_BlacklistIsActive(nameU)) then
+        local hp, maxhp = UnitHealth(u), UnitHealthMax(u)
+        if maxhp and maxhp > 0 then
+          local r = hp / maxhp
+          if r < bestR and r < 0.70 and IsSpellInRange("Holy Shock", u) == 1 then
+            best, bestR = u, r
+          end
         end
       end
     end
   end
+
 
   if not best then return false end
   return Theo_NoSwapCastOnUnit("Holy Shock", best)
@@ -324,19 +420,24 @@ function Theo_CastHolyLight()
   local units = {"player", "party1", "party2", "party3", "party4"}
   for i = 1, 40 do table.insert(units, "raid" .. i) end
 
-  for _, unit in ipairs(units) do
+    for _, unit in ipairs(units) do
     if UnitExists(unit) and UnitIsFriend("player", unit) and not UnitIsDeadOrGhost(unit) then
-      local hp, maxhp = UnitHealth(unit), UnitHealthMax(unit)
-      if maxhp and maxhp > 0 then
-        local ratio = hp / maxhp
-        if ratio < 0.30 and IsSpellInRange("Holy Light", unit) == 1 then
-          if ratio < lowestHP then
-            lowestTarget, lowestHP = unit, ratio
+      local nameU = UnitName(unit)
+      -- SKIP if blacklisted
+      if not (Theo_EnableBlacklist and Theo_BlacklistIsActive(nameU)) then
+        local hp, maxhp = UnitHealth(unit), UnitHealthMax(unit)
+        if maxhp and maxhp > 0 then
+          local ratio = hp / maxhp
+          if ratio < 0.30 and IsSpellInRange("Holy Light", unit) == 1 then
+            if ratio < lowestHP then
+              lowestTarget, lowestHP = unit, ratio
+            end
           end
         end
       end
     end
   end
+
 
   if lowestTarget then
     CastSpellByName("Holy Light(Rank 9)")
@@ -401,6 +502,12 @@ SlashCmdList["THEOERRORS"] = function()
   Theo_SuppressUIErrors = not Theo_SuppressUIErrors
   Theo_SetErrorSuppression(Theo_SuppressUIErrors)
   DEFAULT_CHAT_FRAME:AddMessage("Theo UI errors: " .. (Theo_SuppressUIErrors and "HIDDEN" or "SHOWN"), 1, 1, 0)
+end
+
+SLASH_THEOBL1 = "/theobl"
+SlashCmdList["THEOBL"] = function()
+  Theo_EnableBlacklist = not Theo_EnableBlacklist
+  DEFAULT_CHAT_FRAME:AddMessage("Theo Blacklist: " .. (Theo_EnableBlacklist and "ENABLED" or "DISABLED"), 1, 1, 0)
 end
 
 SLASH_THEOQH1 = "/theoqh"
