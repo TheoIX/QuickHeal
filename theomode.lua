@@ -169,13 +169,14 @@ end
 
 local function Theo_BlacklistAdd(name, seconds, reason)
   if not name or name == "" then return end
-    -- 🔒 Never blacklist yourself
+
+  -- Never blacklist yourself
   if Theo_SameName(name, UnitName("player")) then return end
 
   local now = GetTime and GetTime() or 0
   Theo_Blacklist[name] = now + (seconds or 2.0)
 
-  -- silence chat for the "(busy)" entries only
+  -- Silence chat for "(busy)" entries only
   if reason == "busy" then return end
 
   if DEFAULT_CHAT_FRAME then
@@ -186,7 +187,6 @@ local function Theo_BlacklistAdd(name, seconds, reason)
     )
   end
 end
-
 
 -- Paladin-friendly range probe
 local function Theo_IsUnitInHealRange(unit)
@@ -520,3 +520,4 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
+
