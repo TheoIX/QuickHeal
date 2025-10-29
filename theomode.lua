@@ -64,6 +64,13 @@ local function InTrueMelee(unit)
   if not UnitExists(unit) or UnitIsDeadOrGhost(unit) or not UnitCanAttack("player", unit) then
     return false
   end
+
+  -- If Combat Range Finder is loaded, trust its GREEN-or-TEAL gate.
+  if unit == "target" and type(CRF) == "table" and type(CRF.IsTargetMeleeGreenOrTeal) == "function" then
+    return CRF:IsTargetMeleeGreenOrTeal()
+  end
+
+  -- Fallback: dual spell-range probe (works even if CRF isn't installed)
   local hs = IsSpellInRange("Holy Strike", unit)
   local cs = IsSpellInRange("Crusader Strike", unit)
   return hs == 1 and cs == 1
@@ -520,4 +527,5 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
+
 
