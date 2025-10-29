@@ -51,6 +51,11 @@ local function HasSealOfWisdom()
   return false
 end
 
+local function Theo_SameName(a, b)
+  if not a or not b then return false end
+  return string.lower(a) == string.lower(b)
+end
+
 -- =========================================
 -- RANGE & CAST HELPERS
 -- =========================================
@@ -164,6 +169,9 @@ end
 
 local function Theo_BlacklistAdd(name, seconds, reason)
   if not name or name == "" then return end
+    -- 🔒 Never blacklist yourself
+  if Theo_SameName(name, UnitName("player")) then return end
+
   local now = GetTime and GetTime() or 0
   Theo_Blacklist[name] = now + (seconds or 2.0)
 
@@ -512,4 +520,7 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
+
+SlashCmdList["THEOQH"] = TheoQHHandler
+
 
