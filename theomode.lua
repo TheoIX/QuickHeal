@@ -520,7 +520,3 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
-
-SlashCmdList["THEOQH"] = TheoQHHandler
-
-
