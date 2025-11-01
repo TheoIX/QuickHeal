@@ -457,7 +457,7 @@ if farmMode then
     local maxMana = UnitManaMax("player")
     local manaPct = (currentMana / maxMana) * 100
 
-    if manaPct < 95 then
+    if manaPct < 90 then
         judgementEnabled = false
     elseif manaPct > 99 then
         judgementEnabled = true
@@ -472,19 +472,19 @@ if farmMode then
 
     --1) Cast Judgement if rules met
     if Theo_CastJudgement() then return end
-
-    -- 3) Holy Shock on self <70% HP
-    if Theo_CastHolyShockSelf() then return end
-
-    -- 2) Strike logic: Holy Shock fallback
+    
+    -- 3) Strike logic: Holy Shock fallback
     if Theo_CastStrike() then return end
-
-    -- 4) Consecration
+   
+    -- 2) Consecration
     if Theo_CastConsecration() then return end
-
+  
     -- 5) Holy Shield
     if Theo_CastHolyShield() then return end
 
+    -- 4) Holy Shock on self <70% HP
+    if Theo_CastHolyShockSelf() then return end
+   
     if Theo_CastExorcism() then return end
     -- nothing left to do
     if Theo_CastHammerOfWrath() then return end
@@ -601,5 +601,4 @@ SlashCmdList["PROJUDGE"] = function()
     DEFAULT_CHAT_FRAME:AddMessage("|cff00ccff[QuickTheoProt] Ensure Judgement: "
         .. (QuickTheoProt_EnsureCrusader and "Crusader" or "Wisdom"))
 end
-
 
