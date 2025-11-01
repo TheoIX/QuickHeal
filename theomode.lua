@@ -160,7 +160,7 @@ Theo_SetErrorSuppression(Theo_SuppressUIErrors)
 -- =========================================
 -- BLACKLIST (LoS/Range) + Spy Hooks
 -- =========================================
-Theo_EnableBlacklist = (Theo_EnableBlacklist ~= false) -- default ON
+Theo_EnableBlacklist = (Theo_EnableBlacklist == true) -- default OFF (new installs), preserves saved choice
 local Theo_Blacklist = {}
 local Theo_LastCastTargetName = nil
 
@@ -176,24 +176,26 @@ end
 
 local function Theo_BlacklistAdd(name, seconds, reason)
   if not name or name == "" then return end
-
   -- Never blacklist yourself
   if Theo_SameName(name, UnitName("player")) then return end
 
   local now = GetTime and GetTime() or 0
-  Theo_Blacklist[name] = now + (seconds or 2.0)
+  local dur = 2.0  -- force all blacklist entries to 2s, regardless of caller
+  local prev_until = Theo_Blacklist[name]
+  local isNew = (not prev_until) or (now >= prev_until)
 
-  -- Silence chat for "(busy)" entries only
-  if reason == "busy" then return end
+  Theo_Blacklist[name] = now + dur
 
-  if DEFAULT_CHAT_FRAME then
+  -- Only announce once, at the moment the name FIRST becomes blacklisted (or after it expired)
+  if isNew and DEFAULT_CHAT_FRAME then
     DEFAULT_CHAT_FRAME:AddMessage(
       string.format('Theo: blacklisted "%s" for %.1fs%s',
-        name, seconds or 2.0, reason and (" ("..reason..")") or ""),
+        name, dur, reason and (" ("..reason..")") or ""),
       1, 0.5, 0
     )
   end
 end
+
 
 -- Paladin-friendly range probe
 local function Theo_IsUnitInHealRange(unit)
@@ -210,18 +212,18 @@ if not Theo_Orig_SpellTargetUnit then
   Theo_Orig_SpellTargetUnit = SpellTargetUnit
   SpellTargetUnit = function(unit)
     local name = UnitName and UnitName(unit) or nil
+
     -- If blacklist is enabled and this name is blacklisted, cancel targeting instead of feeding it
     if Theo_EnableBlacklist and name and Theo_BlacklistIsActive(name) then
       if SpellIsTargeting and SpellIsTargeting() then SpellStopTargeting() end
-      if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("Theo: skipped blacklisted target "..name, 1, 0.5, 0)
-      end
-      return -- do NOT call the original; we just decline this target
+      return
     end
+
     -- Record last friendly intended heal target (used by the error listener)
     if name and UnitIsFriend("player", unit) then
       Theo_LastCastTargetName = name
     end
+
     return Theo_Orig_SpellTargetUnit(unit)
   end
 end
@@ -242,14 +244,11 @@ theo_errf:SetScript("OnEvent", function()
     return
   end
   if string.find(lower, "out of range") or string.find(lower, "too far away") or string.find(lower, "range") then
-    Theo_BlacklistAdd(name, 5.0, "range")
-    return
-  end
-  if string.find(lower, "another action") or string.find(lower, "can't do that") or string.find(lower, "can’t do that") then
-    Theo_BlacklistAdd(name, 0.7, "busy")
+    Theo_BlacklistAdd(name, 2.0, "range")
     return
   end
 end)
+
 
 -- =========================================
 -- ROTATION HELPERS
@@ -527,5 +526,4 @@ end
 
 SLASH_THEOQH1 = "/theoqh"
 SlashCmdList["THEOQH"] = TheoQHHandler
-
 
