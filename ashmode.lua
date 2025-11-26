@@ -291,17 +291,17 @@ local function AshQHHandler()
         end
     end
 
-    if QuickHeal_EnableAshmode then
-        local casted = Ash_CastHolyStrike()
-        casted = Ash_CastHolyShock()  or casted
-        casted = Ash_CastHolyLight()  or casted
-        if not casted then
+   -- if QuickHeal_EnableAshmode then
+     --   local casted = Ash_CastHolyStrike()
+      --  casted = Ash_CastHolyShock()  or casted
+       -- casted = Ash_CastHolyLight()  or casted
+      --  if not casted then
             QuickHeal()
-        end
-    else
-        QuickHeal()
-    end
-end
+      --  end
+  --  else
+      --  QuickHeal()
+  --  end
+-- end
 
 -- =========================================
 -- Slash Commands
